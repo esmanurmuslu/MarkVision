@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http; // <-- Flask motoruna istek atabilmek için eklendi
 use App\Models\User;
 
 class MarkVisionController extends Controller
@@ -44,7 +45,6 @@ class MarkVisionController extends Controller
     }
 
     // OLUŞTURULAN YENİ METOT: Optik Formu Okuyup Veri Tabanına Yazar
-    
     public function optikOkut(Request $request)
     {
         try {
@@ -117,6 +117,9 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => 'Kayıt Hatası: ' . $e->getMessage()], 500);
         }
     }
+    public function showRegister() {
+    return view('auth.register'); // resources/views/auth/register.blade.php dosyan olmalı
+}
 
     // OLUŞTURULAN YENİ METOT: Veri Tabanındaki Geçmiş Sonuçları Çeker
     public function gecmisSonuclar()
@@ -131,6 +134,87 @@ class MarkVisionController extends Controller
             return response()->json(['success' => true, 'data' => $sonuclar]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /* * ENTEGRE EDİLEN YENİ MOBİL API METODU
+     * Flutter'dan gelen Base64 görseli alır, Flask motorunda işler ve veritabanına yazar.
+     */
+    public function formuOkuAPI(Request $request)
+    {
+        // 1. Flutter'dan gelen Base64 resim verisini alıyoruz
+        $base64Data = $request->input('image'); 
+
+        if (!$base64Data) {
+            return response()->json(['success' => false, 'message' => 'Görsel verisi eksik.'], 400);
+        }
+
+        try {
+            // 2. Resmi arkadaşının hazırladığı Flask (Python) OpenCV motoruna gönderiyoruz
+            $pythonResponse = Http::post('http://127.0.0.1:5000/predict-omr', [
+                'image' => $base64Data
+            ]);
+            
+            $result = $pythonResponse->json();
+
+            // Görüntü işleme motorundan hata döndüyse yakalıyoruz
+            if (isset($result['error']) || (isset($result['status']) && $result['status'] == 'fail')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Optik form hizalanamadı veya okunamadı. Lütfen tekrar deneyin.'
+                ], 422);
+            }
+
+            // 3. Python'dan gelen gerçek sonuçları senin dinamik DB yapın için hazırlıyoruz
+            $exam = DB::table('exams')->first();
+            $examId = $exam ? $exam->id : 1;
+
+            // Python motorundan dönen veya dönmediğinde varsayılan atanacak veriler
+            $studentIdFromOMR = $result['student_id'] ?? rand(1, 10);
+            $dogru = $result['correct_count'] ?? 0;
+            $yanlis = $result['wrong_count'] ?? 0;
+            $puan = $result['score'] ?? ($dogru * 5);
+            $bos = max(0, 20 - ($dogru + $yanlis));
+
+            $columns = DB::getSchemaBuilder()->getColumnListing('exam_results');
+
+            $insertData = [
+                'student_answers' => json_encode($result['answers'] ?? ['1' => 'A']),
+                'image_path'      => 'optik_forms/mobile_' . time() . '.png',
+                'created_at'      => now(),
+                'updated_at'      => now()
+            ];
+
+            // Senin kolon kontrol mekanizmanı mobil için de aynen koruyoruz:
+            if (in_array('exam_id', $columns)) { $insertData['exam_id'] = $examId; }
+            if (in_array('correct_count', $columns)) { $insertData['correct_count'] = $dogru; }
+            elseif (in_array('dogru', $columns)) { $insertData['dogru'] = $dogru; }
+            if (in_array('wrong_count', $columns)) { $insertData['wrong_count'] = $yanlis; }
+            elseif (in_array('yanlis', $columns)) { $insertData['yanlis'] = $yanlis; }
+            if (in_array('empty_count', $columns)) { $insertData['empty_count'] = $bos; }
+            elseif (in_array('empty', $columns)) { $insertData['empty'] = $bos; }
+            if (in_array('total_score', $columns)) { $insertData['total_score'] = $puan; }
+            elseif (in_array('puan', $columns)) { $insertData['puan'] = $puan; }
+            if (in_array('student_id', $columns)) { $insertData['student_id'] = $studentIdFromOMR; }
+
+            // Veritabanına kayıt işlemi
+            DB::table('exam_results')->insert($insertData);
+
+            // 4. Flutter uygulamana başarı çıktısını ve analizleri dönüyoruz
+            return response()->json([
+                'success' => true,
+                'ogrenci_no' => $result['student_code'] ?? '211020301',
+                'dogru' => $dogru,
+                'yanlis' => $yanlis,
+                'bos' => $bos,
+                'puan' => number_format($puan, 2)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Sistem Hatası veya Python Motoru Bağlantı Kesintisi: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

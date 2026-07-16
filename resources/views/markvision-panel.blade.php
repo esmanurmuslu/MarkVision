@@ -6,14 +6,21 @@
     <title>MarkVision - Optik Okuma Paneli</title>
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <style>
-        /* 4 Köşe ve Tarama Efektleri İçin CSS */
+        body { overflow-x: hidden; width: 100vw; margin: 0; padding: 0; }
+        @media (max-width: 768px) {
+            body { padding: 10px !important; width: 100vw !important; }
+            #main-dashboard { flex-direction: column; min-height: auto !important; }
+            aside { width: 100% !important; padding: 1rem !important; }
+            main { padding: 1rem !important; }
+            #section-okuma { display: flex !important; flex-direction: column !important; }
+            .col-span-2 { width: 100% !important; }
+        }
         .kose-kutusu { position: relative; overflow: hidden; }
         .kose { position: absolute; width: 16px; height: 16px; border-color: #10b981; border-width: 3px; z-index: 20; }
         .sol-ust { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
         .sag-ust { top: 8px; right: 8px; border-left: 0; border-bottom: 0; }
         .sol-alt { bottom: 8px; left: 8px; border-right: 0; border-top: 0; }
         .sag-alt { bottom: 8px; right: 8px; border-left: 0; border-top: 0; }
-        
         .lazer-cizgi {
             position: absolute; left: 0; width: 100%; height: 2px;
             background: linear-gradient(to right, transparent, #10b981, transparent);
@@ -27,25 +34,35 @@
 
     <div id="login-screen" class="w-full max-w-md bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-8 transition-all duration-300">
         <div class="text-center mb-8">
-            <div class="flex items-center justify-center gap-3 mb-4">
-                <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
-                    <div class="absolute inset-0 border-4 border-blue-500 rounded-full animate-spin"></div>
-                    <div class="text-emerald-400 font-bold">MV</div>
-                </div>
-                <div class="text-left">
-                    <div class="flex items-center text-2xl font-black tracking-tight leading-none">
-                        <span class="text-blue-400">MARK</span><span class="text-emerald-400 font-light ml-0.5">VISION</span>
-                    </div>
+            <div class="flex flex-col items-center justify-center gap-3 mb-4">
+                <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#2563eb" stroke-width="6"/>
+                    <circle cx="50" cy="50" r="28" fill="#dbeafe" opacity="0.3"/>
+                    <circle cx="50" cy="50" r="16" fill="#1e3a8a"/>
+                    <line x1="50" y1="50" x2="66" y2="50" stroke="#10b981" stroke-width="2" stroke-dasharray="2,2"/>
+                    <circle cx="68" cy="50" r="4" fill="#10b981"/>
+                    <path d="M18 22 L18 12 L28 12" fill="none" stroke="#10b981" stroke-width="4"/>
+                    <path d="M72 12 L82 12 L82 22" fill="none" stroke="#10b981" stroke-width="4"/>
+                </svg>
+                <div class="flex items-center text-2xl font-black tracking-tight leading-none">
+                    <span class="text-blue-400">MARK</span><span class="text-emerald-400 font-light ml-0.5">VISION</span>
                 </div>
             </div>
             <h2 class="text-2xl font-bold text-white">Sisteme Giriş Yap</h2>
         </div>
+
         <div id="login-error" class="hidden mb-4 p-3 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-200 text-xs"></div>
+
         <form id="loginForm" class="space-y-4">
             <input type="email" id="email" required placeholder="E-posta" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white">
             <input type="password" id="password" required placeholder="Şifre" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white">
-            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-50 text-white font-bold py-3 rounded-xl cursor-pointer">Giriş Yap</button>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl cursor-pointer">Giriş Yap</button>
         </form>
+
+        <p class="text-center text-xs text-slate-400 pt-4">
+            Hesabın yok mu?
+            <a href="{{ route('register') }}" class="text-blue-400 font-semibold">Kayıt Ol</a>
+        </p>
     </div>
 
     <div id="main-dashboard" class="hidden w-full max-w-7xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex min-h-[620px] transition-all duration-300">
@@ -66,7 +83,6 @@
         </aside>
 
         <main class="flex-1 p-8 bg-slate-50/30 text-slate-800">
-            
             <div id="section-okuma" class="grid grid-cols-3 gap-6">
                 <div class="col-span-2 space-y-6">
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
@@ -121,24 +137,20 @@
                                 <th class="p-4">Tarih</th>
                             </tr>
                         </thead>
-                        <tbody id="gecmis-tablo-body" class="text-xs text-slate-600">
-                            </tbody>
+                        <tbody id="gecmis-tablo-body" class="text-xs text-slate-600"></tbody>
                     </table>
                 </div>
             </div>
-
         </main>
     </div>
 
     <script>
-        // Sayfa Elemanları Tanımları
         const loginForm = document.getElementById('loginForm');
         const loginScreen = document.getElementById('login-screen');
         const mainDashboard = document.getElementById('main-dashboard');
         const mainBody = document.getElementById('main-body');
         const lazer = document.getElementById('lazer');
 
-        // Giriş AJAX İşlemi
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const response = await fetch("{{ route('panel.login') }}", {
@@ -151,10 +163,13 @@
                 loginScreen.classList.add('hidden'); mainDashboard.classList.remove('hidden');
                 mainBody.className = "bg-slate-100 min-h-screen text-slate-800 p-6 flex items-start justify-center";
                 document.getElementById('user-display-name').textContent = data.user.ad;
-            } else { alert(data.message); }
+            } else {
+                const err = document.getElementById('login-error');
+                err.textContent = data.message;
+                err.classList.remove('hidden');
+            }
         });
 
-        // Sekme Değiştirme Mantığı
         const menuOkut = document.getElementById('menu-okut');
         const menuGecmis = document.getElementById('menu-gecmis');
         const secOkuma = document.getElementById('section-okuma');
@@ -170,8 +185,7 @@
             secOkuma.classList.add('hidden'); secGecmis.classList.remove('hidden');
             menuGecmis.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer";
             menuOkut.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer";
-            
-            // Geçmiş verileri çekip tabloya bas
+
             const res = await fetch("{{ route('panel.gecmis') }}");
             const veriler = await res.json();
             const tbody = document.getElementById('gecmis-tablo-body');
@@ -193,7 +207,6 @@
             }
         });
 
-        // Kamera ve Görsel Seçim Mantığı
         const fileInput = document.getElementById('optik_dosya');
         const previewImg = document.getElementById('onizleme-gorsel');
         const video = document.getElementById('webcam');
@@ -211,7 +224,7 @@
         document.getElementById('btnYontemKamera').addEventListener('click', async () => {
             document.getElementById('alanDosya').classList.add('hidden');
             document.getElementById('alanKamera').classList.remove('hidden');
-            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); video.srcObject = stream; } 
+            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); video.srcObject = stream; }
             catch (err) { alert("Kamera donanımına erişilemedi."); }
         });
 
@@ -221,14 +234,11 @@
             if(stream) { stream.getTracks().forEach(t => t.stop()); }
         });
 
-        // 4 KÖŞELİ OPTİK OKUTMA VE LAZER TETİKLEME BUTONU
         document.getElementById('btnFormuOkut').addEventListener('click', async () => {
-            // Lazer animasyonunu başlatıyoruz (4 köşeyi tarama efekti)
             lazer.style.display = 'block';
             document.getElementById('btnFormuOkut').disabled = true;
             document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
 
-            // 2 saniye tarama simülasyonu yapıp backend'e istek atıyoruz
             setTimeout(async () => {
                 lazer.style.display = 'none';
                 document.getElementById('btnFormuOkut').disabled = false;
