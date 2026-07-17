@@ -10,3 +10,13 @@ Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])-
 
 Route::get('/register', [MarkVisionController::class, 'showRegister'])->name('register');
 Route::post('/register', [MarkVisionController::class, 'registerStore'])->name('register.store');
+Route::get('/', function () {
+    return view('welcome');
+});
+use App\Jobs\ProcessExamImageJob;
+
+Route::get('/test-gonder', function () {
+    $path = base_path('omr_scripts/optik.png');
+    ProcessExamImageJob::dispatch(1, $path);
+    return "İş kuyruğa atıldı! queue:work terminalini kontrol et.";
+});
