@@ -1,7 +1,7 @@
+<?php
 use App\Http\Controllers\MarkVisionController;
 Route::post('/optik-oku', [MarkVisionController::class, 'formuOkuAPI']);
 Route::post('/register', [App\Http\Controllers\MarkVisionController::class, 'register']);
-<?php
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;

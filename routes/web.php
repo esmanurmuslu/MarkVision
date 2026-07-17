@@ -11,7 +11,7 @@ Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])-
 Route::get('/register', [MarkVisionController::class, 'showRegister'])->name('register');
 Route::post('/register', [MarkVisionController::class, 'registerStore'])->name('register.store');
 Route::get('/', function () {
-    return view('welcome');
+    return view('markvision-panel');
 });
 use App\Jobs\ProcessExamImageJob;
 
