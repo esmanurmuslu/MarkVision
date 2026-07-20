@@ -16,3 +16,5 @@ Route::post('/exams/evaluate', [ExamController::class, 'evaluate']);
 
 // Belirli bir sınavın okunan sonuçlarını listelemek için kullanılacak uç
 Route::get('/exams/{id}/results', [ExamController::class, 'results']);
+Route::post('/optik-oku', [MarkVisionController::class, 'formuOkuAPI']);
+Route::post('/register', [App\Http\Controllers\MarkVisionController::class, 'register']);

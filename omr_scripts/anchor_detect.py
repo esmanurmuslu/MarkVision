@@ -307,7 +307,6 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
         img = img_orijinal
 
     img_gri = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = kagidi_bul_ve_kirp(img)
     
     # ---CLAHE IŞIK DENGELEME ---
     img_gri = apply_clahe(img_gri)
