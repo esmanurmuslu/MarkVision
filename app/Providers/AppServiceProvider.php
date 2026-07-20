@@ -3,28 +3,19 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Schema; // YENİ EKLENEN SATIR (1)
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        // Eski MySQL sürümleri için
+        // Eski MySQL sürümleri için varsayılan string uzunluğunu sınırlar
         Schema::defaultStringLength(191);
-
-        // Laravel Pagination Bootstrap 5
-        Paginator::useBootstrapFive();
+        Schema::defaultStringLength(191); // YENİ EKLENEN SATIR (2)
     }
 }
