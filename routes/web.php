@@ -1,22 +1,70 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\MarkVisionController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ObsController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\CourseController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ResultController;
 
-Route::get('/', [MarkVisionController::class, 'index'])->name('panel.index');
-Route::post('/ajax-login', [MarkVisionController::class, 'login'])->name('panel.login');
-Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut'])->name('panel.okut');
-Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])->name('panel.gecmis');
+Route::get('/login', [AuthController::class, 'showLogin'])
+    ->name('login');
 
-Route::get('/register', [MarkVisionController::class, 'showRegister'])->name('register');
-Route::post('/register', [MarkVisionController::class, 'registerStore'])->name('register.store');
-Route::get('/', function () {
-    return view('markvision-panel');
-});
-use App\Jobs\ProcessExamImageJob;
+Route::post('/login', [AuthController::class, 'login'])
+    ->name('login.post');
 
-Route::get('/test-gonder', function () {
-    $path = base_path('omr_scripts/optik.png');
-    ProcessExamImageJob::dispatch(1, $path);
-    return "İş kuyruğa atıldı! queue:work terminalini kontrol et.";
+Route::middleware('check.login')->group(function () {
+
+    // Dashboard
+    Route::get('/', [DashboardController::class, 'index'])
+        ->name('dashboard');
+
+    // Logout
+    Route::post('/logout', [AuthController::class, 'logout'])
+        ->name('logout');
+
+    // Students
+    Route::resource('students', StudentController::class);
+
+    // Teachers
+    Route::resource('teachers', TeacherController::class);
+
+    // Departments
+    Route::resource('departments', DepartmentController::class);
+
+    // Courses
+    Route::resource('courses', CourseController::class);
+
+    // Exams
+    Route::resource('exams', ExamController::class);
+
+    // Answer Key
+    Route::get('/exams/{exam}/answer-key', [ExamController::class, 'answerKey'])
+        ->name('exams.answerkey');
+
+    Route::post('/exams/{exam}/answer-key', [ExamController::class, 'saveAnswerKey'])
+        ->name('exams.answerkey.save');
+
+    // Results
+    Route::get('/results', [ResultController::class, 'index'])
+        ->name('results.index');
+
+    Route::get('/results/{result}', [ResultController::class, 'show'])
+        ->name('results.show');
+
+    Route::get('/results/export', [ResultController::class, 'export'])
+        ->name('results.export');
+
+    // OBS
+    Route::get('/obs', [ObsController::class, 'index'])
+        ->name('obs.students');
+
+    Route::get('/obs/pending', [ObsController::class, 'pendingReviews'])
+        ->name('obs.pending');
+
+    Route::post('/api/optical-scan', [ObsController::class, 'storeOpticalScan']);
 });
