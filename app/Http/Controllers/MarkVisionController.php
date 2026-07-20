@@ -6,34 +6,33 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http; // <-- Flask motoruna istek atabilmek için eklendi
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Str;
 use App\Models\User;
+use App\Models\Sinav;
+use App\Models\OgrenciSonuc;
 
 class MarkVisionController extends Controller
 {
-    public function index()
+    // Python'un tam yolu — kendi bilgisayarınızda where.exe/py -c ile bulduğumuz yol
+   // Python'un tam yolu
+    private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
+
+    public function index() // <-- 18. satır civarı
     {
         return view('markvision-panel');
-    }
-
+    } // <-- 20. satır civarı
     public function login(Request $request)
     {
         try {
             $request->validate(['email' => 'required|email', 'password' => 'required']);
-
-            // E-posta karşılaştırmasını baş/son boşluk ve büyük/küçük harf
-            // farkına karşı dayanıklı yapıyoruz (kopyala-yapıştırdan gelen
-            // gizli boşluklar "yanlış şifre" gibi görünen sahte hatalara yol açabiliyordu).
-            $email = trim(strtolower($request->email));
-            $teacher = DB::table('teachers')
-                ->whereRaw('LOWER(email) = ?', [$email])
-                ->first();
+            $teacher = DB::table('teachers')->where('email', $request->email)->first();
 
             if ($teacher && Hash::check($request->password, $teacher->password)) {
                 $userModel = User::find($teacher->id);
                 if (!$userModel) {
                     $userModel = new User();
-                    $userModel->forceFill((array)$teacher);
+                    $userModel->forceFill((array) $teacher);
                 }
                 Auth::login($userModel);
 
@@ -41,8 +40,8 @@ class MarkVisionController extends Controller
                     'success' => true,
                     'user' => [
                         'ad' => $teacher->name . ' ' . $teacher->surname,
-                        'rol' => 'Öğretmen / Akademisyen'
-                    ]
+                        'rol' => 'Öğretmen / Akademisyen',
+                    ],
                 ]);
             }
             return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
@@ -51,267 +50,224 @@ class MarkVisionController extends Controller
         }
     }
 
-    public function optikOkut(Request $request)
+    public function showRegister()
     {
-        // HATA AYIKLAMA: PHP'nin kendi dosya yükleme hata kodunu yakalayalım
-        if (!$request->hasFile('image')) {
-            // Dosya PHP'ye hiç ulaşmadıysa veya reddedildiyse gerçek hata kodunu al:
-            $hataKodu = isset($_FILES['image']['error']) ? $_FILES['image']['error'] : 'Dosya gönderilmedi (Frontend Form Hatası)';
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'PHP dosyayı kabul etmedi! Hata Kodu: ' . $hataKodu
-            ], 400);
-        }
-        
-        
+        return view('auth.register');
+    }
 
+    // --- CEVAP ANAHTARI KAYDET ---
+    public function saveAnswerKey(Request $request)
+    {
         try {
-            // 1. Hangi sınav okutulacak? Frontend exam_id gönderiyorsa onu kullan,
-            //    göndermiyorsa (eski davranışla uyumlu olsun diye) ilk sınavı al.
-            $examId = $request->input('exam_id');
-            $exam = $examId
-                ? DB::table('exams')->where('id', $examId)->first()
-                : DB::table('exams')->first();
-
-            if (!$exam) {
-                return response()->json(['success' => false, 'message' => 'Sınav bulunamadı.'], 404);
-            }
-            $examId = $exam->id;
-
-           // 2. Arayüzden Gelen Görseli Al ve Basit Bir İsimle Kaydet
-            // OpenCV'nin Türkçe karakterli (MUŞLU) yollarda çökmesini önlemek için
-            // resmi doğrudan Python scriptinin yanına (omr_scripts) basit bir isimle taşıyoruz.
-            $imageName = 'okunacak_form_' . time() . '.png';
-            $request->file('image')->move(base_path('omr_scripts'), $imageName);
-
-            // 3. Python motorunun okuyacağı sinav_bilgisi.json dosyasını dinamik olarak yazıyoruz
-            $sinavBilgisi = [
-                'exam_id' => $exam->id,
-                'total_questions' => (int) $exam->total_questions,
-                'answer_key' => json_decode($exam->answer_key, true),
-            ];
-            $sinavJson = base_path('omr_scripts/sinav_bilgisi.json');
-            file_put_contents($sinavJson, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
-
-            // 4. PYTHON MOTORUNU ÇALIŞTIR
-            $scriptPath = base_path('omr_scripts/pipeline_main.py');
-            $koordinatJson = base_path('omr_scripts/koordinat_haritasi.json');
-
-            putenv('TMP=' . storage_path('app'));
-            putenv('TEMP=' . storage_path('app'));
-
-            // DİKKAT: Artık Python'a uzun ve sorunlu absolute path yerine SADECE dosyanın adını ($imageName) gönderiyoruz!
-            // pipeline_main.py zaten os.chdir ile kendi klasöründe (omr_scripts) arama yapacak.
-            $process = new \Symfony\Component\Process\Process([
-                'python', 
-                $scriptPath, 
-                $imageName, 
-                $koordinatJson, 
-                $sinavJson
+            $request->validate([
+                'exam_name' => 'required|string|max:255',
+                'ders_kodu' => 'nullable|string|max:50',
+                'answers'   => 'required|array|min:1',
+                'answers.*' => 'required|string|in:A,B,C,D,E',
             ]);
 
-            $process->run();
-
-            // HATA AYIKLAMA İÇİN:
-            if (!$process->isSuccessful()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'PYTHON DETAYI: ' . $process->getErrorOutput() 
-                ], 500);
-            }
-
-            $output = $process->getOutput();
-            $result = json_decode($output, true);
-
-            $process->run();
-
-            // HATA AYIKLAMA İÇİN:
-          // HATA AYIKLAMA İÇİN:
-            if (!$process->isSuccessful()) {
-                return response()->json([
-                    'success' => false,
-                    // Hatayı doğrudan ekrana yansıtıyoruz:
-                    'message' => 'PYTHON DETAYI: ' . $process->getErrorOutput() 
-                ], 500);
-            }
-
-            $output = $process->getOutput();
-            $result = json_decode($output, true);
-            // 5. PYTHON'DAN GELEN VERİLER
-            $ogrenciNo = $result['student_no'] ?? null; // null => numara okunamadı
-            $dogru = $result['correct_count'] ?? 0;
-            $yanlis = $result['wrong_count'] ?? 0;
-            $bos = $result['blank_count'] ?? 0;
-            $puan = $result['score'] ?? 0;
-            $status = $result['status'] ?? 'pending_review';
-
-            // 6. İSMİ BUL
-            $secilenIsim = 'Bilinmeyen Öğrenci';
-            if ($ogrenciNo !== null) {
-                $ogrenci = DB::table('students')->where('student_no', $ogrenciNo)->first();
-                if ($ogrenci) {
-                    $secilenIsim = $ogrenci->student_name . ' ' . $ogrenci->student_surname;
+            // DÜZELTME: 'ders_kodu' sütunu veritabanında NOT NULL ve varsayılan
+            // değeri yok. Kullanıcı bu alanı boş bırakırsa sınav adından
+            // otomatik bir kod türetiyoruz, böylece SQL hatası bir daha oluşmaz.
+            $dersKodu = trim((string) $request->input('ders_kodu'));
+            if ($dersKodu === '') {
+                $dersKodu = strtoupper(Str::slug($request->input('exam_name'), '_'));
+                if (strlen($dersKodu) > 30) {
+                    $dersKodu = substr($dersKodu, 0, 30);
+                }
+                if ($dersKodu === '') {
+                    $dersKodu = 'GENEL_' . time();
                 }
             }
 
-            // 7. VERİTABANINA KAYDET (exam_results tablosunun GERÇEK kolonlarıyla birebir)
-            $insertData = [
-                'exam_id'            => $examId,
-                'student_answers'    => json_encode($result['student_answers'] ?? [], JSON_UNESCAPED_UNICODE),
-                'correct_count'      => $dogru,
-                'wrong_count'        => $yanlis,
-                'blank_count'        => $bos,
-                'score'              => $puan,
-                'status'             => $status,
-                'optical_image_url'  => $imageName,
-                'updated_at'         => now(),
-            ];
-
-            // exam_results tablosunda (student_no, exam_id) UNIQUE kısıtlaması var.
-            // Aynı öğrenci aynı sınav için tekrar okutulursa düz insert() "Duplicate entry"
-            // hatası fırlatır; bu yüzden updateOrInsert ile "varsa güncelle, yoksa ekle" yapıyoruz.
-            if ($ogrenciNo !== null) {
-                DB::table('exam_results')->updateOrInsert(
-                    ['student_no' => $ogrenciNo, 'exam_id' => $examId],
-                    $insertData + ['created_at' => now()]
-                );
-            } else {
-                // Numara okunamadıysa unique kısıtlamaya takılmadan yeni bir satır olarak ekle
-                $insertData['student_no'] = null;
-                $insertData['created_at'] = now();
-                DB::table('exam_results')->insert($insertData);
-            }
-
-            // 8. EKRANA (YANDAKİ GÜZEL TASARIMA) GÖNDER
-            return response()->json([
-                'success'    => true,
-                'ogrenci_no' => $ogrenciNo ?? 'Okunamadı',
-                'ad_soyad'   => $secilenIsim,
-                'dogru'      => $dogru,
-                'yanlis'     => $yanlis,
-                'bos'        => $bos,
-                'puan'       => number_format($puan, 2),
-                'durum'      => $status,
+            $sinav = Sinav::create([
+                'sinav_adi'      => $request->input('exam_name'),
+                'ders_kodu'      => $dersKodu,
+                'cevap_anahtari' => $request->input('answers'),
             ]);
 
-        } catch (\Exception $e) {
+            return response()->json([
+                'success'  => true,
+                'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
+                'sinav_id' => $sinav->id,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'PHP HATA DETAYI: ' . $e->getMessage() . ' | Dosya: ' . $e->getFile() . ' | Satır: ' . $e->getLine()
-            ], 500);
-        }
-    }
-
-    public function showRegister()
-    {
-        return view('auth.register'); // resources/views/auth/register.blade.php dosyan olmalı
-    }
-
-    // OLUŞTURULAN YENİ METOT: Veri Tabanındaki Geçmiş Sonuçları Çeker
-    public function gecmisSonuclar()
-    {
-        try {
-            // NOT: exams tablosunda 'exam_name' diye bir kolon yok
-            // (gerçek kolonlar: course_name, exam_type) -- eskiden burada
-            // "Unknown column 'exams.exam_name'" hatası alınıyordu.
-            $sonuclar = DB::table('exam_results')
-                ->leftJoin('exams', 'exam_results.exam_id', '=', 'exams.id')
-                ->select(
-                    'exam_results.*',
-                    'exams.course_name as exam_name',
-                    'exams.exam_type'
-                )
-                ->orderBy('exam_results.id', 'desc')
-                ->get();
-
-            return response()->json(['success' => true, 'data' => $sonuclar]);
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
-    /* * ENTEGRE EDİLEN YENİ MOBİL API METODU
-     * Flutter'dan gelen Base64 görseli alır, Flask motorunda işler ve veritabanına yazar.
-     */
-    public function formuOkuAPI(Request $request)
+    // --- EN SON CEVAP ANAHTARINI GETİR (formu doldurmak için) ---
+    public function getLatestAnswerKey()
     {
-        // 1. Flutter'dan gelen Base64 resim verisini alıyoruz
-        $base64Data = $request->input('image'); 
-
-        if (!$base64Data) {
-            return response()->json(['success' => false, 'message' => 'Görsel verisi eksik.'], 400);
-        }
-
         try {
-            // 2. Resmi arkadaşının hazırladığı Flask (Python) OpenCV motoruna gönderiyoruz
-            $pythonResponse = Http::post('http://127.0.0.1:5000/predict-omr', [
-                'image' => $base64Data
+            $sinav = Sinav::latest()->first();
+            if (!$sinav) {
+                return response()->json(['success' => false]);
+            }
+            return response()->json([
+                'success'   => true,
+                'exam_name' => $sinav->sinav_adi,
+                'ders_kodu' => $sinav->ders_kodu,
+                'answers'   => $sinav->cevap_anahtari,
             ]);
-            
-            $result = $pythonResponse->json();
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
 
-            // Görüntü işleme motorundan hata döndüyse yakalıyoruz
-            if (isset($result['error']) || (isset($result['status']) && $result['status'] == 'fail')) {
+    // --- OPTİK FORMU OKU (GERÇEK PYTHON PIPELINE ÇAĞRISI) ---
+    public function optikOkut(Request $request)
+    {
+        try {
+            // Frontend FormData ile gerçek dosya gönderiyor (base64 değil).
+            $request->validate([
+                'image' => 'required|file|image|max:10240', // max 10MB
+            ]);
+
+            // Her zaman EN SON kaydedilen cevap anahtarı kullanılır.
+            // Yani okuma islemi ancak cevap anahtari basariyla kaydedildikten
+            // sonra dogru calisir -- artik saveAnswerKey hata vermedigi icin
+            // bu akis her zaman guncel anahtari kullanacak.
+            $sinav = Sinav::latest()->first();
+            if (!$sinav || empty($sinav->cevap_anahtari)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Optik form hizalanamadı veya okunamadı. Lütfen tekrar deneyin.'
+                    'message' => 'Önce "Cevap Anahtarı" bölümünden bir sınav cevap anahtarı kaydetmelisiniz.',
                 ], 422);
             }
 
-            // 3. Python'dan gelen gerçek sonuçları senin dinamik DB yapın için hazırlıyoruz
-            $exam = DB::table('exams')->first();
-            $examId = $exam ? $exam->id : 1;
+            $answerKey = $sinav->cevap_anahtari;
+            $totalQuestions = count($answerKey);
 
-            // Python motorundan dönen veya dönmediğinde varsayılan atanacak veriler
-            $studentNoFromOMR = $result['student_no'] ?? $result['student_id'] ?? null;
-            $dogru = $result['correct_count'] ?? 0;
-            $yanlis = $result['wrong_count'] ?? 0;
-            $puan = $result['score'] ?? ($dogru * 5);
-            $bos = max(0, 20 - ($dogru + $yanlis));
-            $status = $result['status'] ?? 'pending_review';
+            // 1. Yüklenen dosyayı diske kaydet
+            $publicDir = storage_path('app/public/optik_forms');
+            if (!is_dir($publicDir)) mkdir($publicDir, 0777, true);
 
-            // exam_results tablosunun GERÇEK kolonlarıyla birebir (kolon adı tahmini kaldırıldı,
-            // optikOkut() ile aynı mantık: bkz. markvision.sql şeması)
-            $insertData = [
-                'exam_id'            => $examId,
-                'student_answers'    => json_encode($result['answers'] ?? $result['student_answers'] ?? [], JSON_UNESCAPED_UNICODE),
-                'correct_count'      => $dogru,
-                'wrong_count'        => $yanlis,
-                'blank_count'        => $bos,
-                'score'              => $puan,
-                'status'             => $status,
-                'optical_image_url'  => 'optik_forms/mobile_' . time() . '.png',
-                'updated_at'         => now(),
+            $uploadedFile = $request->file('image');
+            $extension = $uploadedFile->getClientOriginalExtension() ?: 'jpg';
+            $imageName = 'optik_' . time() . '_' . uniqid() . '.' . $extension;
+
+            $uploadedFile->move($publicDir, $imageName);
+            $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
+
+            // 2. Geçici sinav_bilgisi.json dosyasını oluştur
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
+
+            $sinavBilgisi = [
+                'exam_id'         => $sinav->id,
+                'total_questions' => $totalQuestions,
+                'answer_key'      => $answerKey,
             ];
+            $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
+            file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
 
-            // (student_no, exam_id) UNIQUE kısıtlaması nedeniyle updateOrInsert kullanıyoruz.
-            if ($studentNoFromOMR !== null) {
-                DB::table('exam_results')->updateOrInsert(
-                    ['student_no' => $studentNoFromOMR, 'exam_id' => $examId],
-                    $insertData + ['created_at' => now()]
-                );
-            } else {
-                $insertData['student_no'] = null;
-                $insertData['created_at'] = now();
-                DB::table('exam_results')->insert($insertData);
+            // 3. Python pipeline'ını çalıştır
+            $omrDir = base_path('omr_scripts');
+            $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
+            $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
+
+            $result = Process::path($omrDir)
+                ->timeout(60)
+                ->run([$this->pythonPath, $pipelinePath, $imagePath, $koordinatPath, $sinavPath]);
+
+            $output = trim($result->output());
+            $errorOutput = trim($result->errorOutput());
+
+            @unlink($sinavPath);
+
+            if (!$output) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python işlemi hiçbir çıktı üretmedi. Detay: ' . $errorOutput,
+                ], 500);
             }
 
-            // 4. Flutter uygulamana başarı çıktısını ve analizleri dönüyoruz
-            return response()->json([
-                'success' => true,
-                'ogrenci_no' => $studentNoFromOMR ?? 'Okunamadı',
-                'dogru' => $dogru,
-                'yanlis' => $yanlis,
-                'bos' => $bos,
-                'puan' => number_format($puan, 2)
+            $sonuc = json_decode($output, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !isset($sonuc['basarili'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Python çıktısı okunamadı: ' . $output,
+                ], 500);
+            }
+
+            if (!$sonuc['basarili']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $sonuc['hata'] ?? 'Optik form okunamadı (anchor/köşe bulunamadı).',
+                ], 422);
+            }
+
+            // 4. Sonucu ogrenci_sonuclar tablosuna kaydet
+            // Bu, formu her hizala/okut dediginde -- okuma basarili oldugu
+            // surece (anchor/kose bulunabildigi surece, cevaplar yanlis
+            // olsa bile) -- Gecmis Sonuclar listesine bir kayit ekler.
+            OgrenciSonuc::create([
+                'sinav_id'          => $sinav->id,
+                'ogrenci_no'        => $sonuc['student_no'] ?? null,
+                'ogrenci_ad_soyad'  => null,
+                'ogrenci_cevaplari' => $sonuc['student_answers'] ?? [],
+                'dogru_sayisi'      => $sonuc['correct_count'] ?? 0,
+                'yanlis_sayisi'     => $sonuc['wrong_count'] ?? 0,
+                'bos_sayisi'        => $sonuc['blank_count'] ?? 0,
+                'toplam_puan'       => $sonuc['score'] ?? 0,
+                'gorsel_yolu'       => 'optik_forms/' . $imageName,
             ]);
 
-        } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
-                'message' => 'Sistem Hatası veya Python Motoru Bağlantı Kesintisi: ' . $e->getMessage()
-            ], 500);
+                'success'    => true,
+                'ogrenci_no' => $sonuc['student_no'] ?? 'Okunamadı',
+                'dogru'      => $sonuc['correct_count'] ?? 0,
+                'yanlis'     => $sonuc['wrong_count'] ?? 0,
+                'bos'        => $sonuc['blank_count'] ?? 0,
+                'puan'       => number_format($sonuc['score'] ?? 0, 2),
+                'status'     => $sonuc['status'] ?? 'success',
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
+        }
+    }
+
+    // --- GEÇMİŞ SONUÇLAR (veritabanından çeker) ---
+    public function gecmisSonuclar()
+    {
+        try {
+            // DÜZELTME: Daha önce OgrenciSonuc::with('sinav') kullanılıyordu.
+            // OgrenciSonuc modelinde 'sinav' adinda bir iliski (relationship)
+            // tanimli olmadigi icin bu satir Laravel'de bir istisna
+            // (BadMethodCallException) firlatiyordu; bu istisna asagidaki
+            // catch blogunda sessizce yakalanip 'success' => false donuyordu
+            // ve frontend de bunu "henuz kayit yok" olarak gosteriyordu --
+            // OYSA kayitlar veritabanina DOGRU sekilde dusuyordu, sadece bu
+            // listeleme sorgusu patliyordu. Artik iliskiye bagli olmadan,
+            // sinav_id uzerinden manuel eslestirme yapiyoruz.
+            $sinavAdlari = Sinav::pluck('sinav_adi', 'id');
+
+            $sonuclar = OgrenciSonuc::orderBy('id', 'desc')
+                ->get()
+                ->map(function ($s) use ($sinavAdlari) {
+                    return [
+                        'id'            => $s->id,
+                        'exam_name'     => $sinavAdlari[$s->sinav_id] ?? 'Genel Optik Sınav',
+                        'ogrenci_no'    => $s->ogrenci_no,
+                        'correct_count' => $s->dogru_sayisi,
+                        'wrong_count'   => $s->yanlis_sayisi,
+                        'empty_count'   => $s->bos_sayisi,
+                        'total_score'   => $s->toplam_puan,
+                        'created_at'    => $s->created_at,
+                    ];
+                });
+
+            return response()->json(['success' => true, 'data' => $sonuclar]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 }

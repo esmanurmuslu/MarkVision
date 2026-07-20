@@ -28,6 +28,12 @@
             animation: tarama 2s linear infinite;
         }
         @keyframes tarama { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
+
+        /* Cevap Anahtarı radio satırları */
+        .soru-satiri { display: grid; grid-template-columns: 40px repeat(5, 1fr); align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; }
+        .soru-satiri:nth-child(odd) { background: #f8fafc; }
+        .secenek-etiket { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: #64748b; cursor: pointer; }
+        .secenek-etiket input { accent-color: #2563eb; width: 15px; height: 15px; cursor: pointer; }
     </style>
 </head>
 <body id="main-body" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 min-h-screen text-slate-100 antialiased font-sans flex items-center justify-center p-4 transition-all duration-500">
@@ -70,6 +76,7 @@
             <div class="space-y-8">
                 <nav class="space-y-1">
                     <button id="menu-okut" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer">🎯 Optik Okut</button>
+                    <button id="menu-cevap" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer">📝 Cevap Anahtarı</button>
                     <button id="menu-gecmis" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer">🕒 Geçmiş Sonuçlar</button>
                 </nav>
             </div>
@@ -82,7 +89,9 @@
             </div>
         </aside>
 
-        <main class="flex-1 p-8 bg-slate-50/30 text-slate-800">
+        <main class="flex-1 p-8 bg-slate-50/30 text-slate-800 overflow-y-auto">
+
+            {{-- ============ OPTİK OKUT ============ --}}
             <div id="section-okuma" class="grid grid-cols-3 gap-6">
                 <div class="col-span-2 space-y-6">
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
@@ -119,6 +128,55 @@
                 </div>
             </div>
 
+            {{-- ============ CEVAP ANAHTARI ============ --}}
+            <div id="section-cevap" class="hidden max-w-3xl">
+                <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Yeni Cevap Anahtarı</h2>
+                        <p class="text-xs text-slate-400">Optik okumadan önce cevap anahtarını gir</p>
+                    </div>
+
+                    <div id="cevap-mesaj" class="hidden text-xs rounded-lg p-3"></div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="col-span-2">
+                            <label class="text-[11px] font-semibold text-slate-500 uppercase">Sınav Adı</label>
+                            <input type="text" id="cevap_sinav_adi" placeholder="Örn: Halkla İlişkilerde İletişim Kuramları Vize"
+                                   class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-500 uppercase">Ders Kodu <span class="normal-case text-slate-400">(opsiyonel)</span></label>
+                            <input type="text" id="cevap_ders_kodu" placeholder="Örn: HIT101"
+                                   class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-[11px] font-semibold text-slate-500 uppercase">Soru Sayısı</label>
+                        <div class="flex gap-2 mt-1 max-w-xs">
+                            <input type="number" id="cevap_soru_sayisi" min="1" max="40" value="10"
+                                   class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <button id="btnSorulariOlustur" class="shrink-0 px-4 py-2 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 border border-slate-200 cursor-pointer whitespace-nowrap">Soruları Oluştur</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="grid grid-cols-[40px_repeat(5,1fr)] gap-2 px-1 mb-1">
+                            <span></span>
+                            <span class="text-center text-[10px] font-bold text-slate-400">A</span>
+                            <span class="text-center text-[10px] font-bold text-slate-400">B</span>
+                            <span class="text-center text-[10px] font-bold text-slate-400">C</span>
+                            <span class="text-center text-[10px] font-bold text-slate-400">D</span>
+                            <span class="text-center text-[10px] font-bold text-slate-400">E</span>
+                        </div>
+                        <div id="sorular-konteyner" class="max-h-96 overflow-y-auto border border-slate-100 rounded-xl p-2"></div>
+                    </div>
+
+                    <button id="btnCevapKaydet" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition">Cevap Anahtarını Kaydet</button>
+                </div>
+            </div>
+
+            {{-- ============ GEÇMİŞ SONUÇLAR ============ --}}
             <div id="section-gecmis" class="hidden space-y-6">
                 <div class="bg-white p-6 rounded-2xl border border-slate-200 flex justify-between items-center">
                     <div>
@@ -170,21 +228,43 @@
             }
         });
 
+        // ---- Menü / Sekme geçişleri ----
         const menuOkut = document.getElementById('menu-okut');
+        const menuCevap = document.getElementById('menu-cevap');
         const menuGecmis = document.getElementById('menu-gecmis');
         const secOkuma = document.getElementById('section-okuma');
+        const secCevap = document.getElementById('section-cevap');
         const secGecmis = document.getElementById('section-gecmis');
 
+        const aktifMenuSinifi = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer";
+        const pasifMenuSinifi = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer";
+
+        function hepsiniGizle() {
+            secOkuma.classList.add('hidden');
+            secCevap.classList.add('hidden');
+            secGecmis.classList.add('hidden');
+            [menuOkut, menuCevap, menuGecmis].forEach(b => b.className = pasifMenuSinifi);
+        }
+
         menuOkut.addEventListener('click', () => {
-            secOkuma.classList.remove('hidden'); secGecmis.classList.add('hidden');
-            menuOkut.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer";
-            menuGecmis.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer";
+            hepsiniGizle();
+            secOkuma.classList.remove('hidden');
+            menuOkut.className = aktifMenuSinifi;
+        });
+
+        menuCevap.addEventListener('click', () => {
+            hepsiniGizle();
+            secCevap.classList.remove('hidden');
+            menuCevap.className = aktifMenuSinifi;
+            if (document.getElementById('sorular-konteyner').children.length === 0) {
+                sorulariOlustur();
+            }
         });
 
         menuGecmis.addEventListener('click', async () => {
-            secOkuma.classList.add('hidden'); secGecmis.classList.remove('hidden');
-            menuGecmis.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer";
-            menuOkut.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer";
+            hepsiniGizle();
+            secGecmis.classList.remove('hidden');
+            menuGecmis.className = aktifMenuSinifi;
 
             const res = await fetch("{{ route('panel.gecmis') }}");
             const veriler = await res.json();
@@ -202,11 +282,116 @@
                             <td class="p-4 text-slate-400">${new Date(item.created_at).toLocaleString('tr-TR')}</td>
                         </tr>`;
                 });
-            } else {
+            } else if (veriler.success) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">Henüz kayıtlı optik tarama sonucu bulunamadı.</td></tr>`;
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500">Sonuçlar yüklenemedi: ${veriler.message ?? 'Bilinmeyen hata'}</td></tr>`;
             }
         });
 
+        // ---- CEVAP ANAHTARI: soruları dinamik oluştur ----
+        const sorularKonteyner = document.getElementById('sorular-konteyner');
+        const cevapMesaj = document.getElementById('cevap-mesaj');
+
+        function sorulariOlustur() {
+            let adet = parseInt(document.getElementById('cevap_soru_sayisi').value, 10);
+            if (!adet || adet < 1) adet = 1;
+            if (adet > 40) adet = 40;
+            document.getElementById('cevap_soru_sayisi').value = adet;
+
+            sorularKonteyner.innerHTML = "";
+            const secenekler = ['A', 'B', 'C', 'D', 'E'];
+
+            for (let i = 1; i <= adet; i++) {
+                const satir = document.createElement('div');
+                satir.className = "soru-satiri";
+
+                let html = `<span class="text-xs font-bold text-slate-500">${i}</span>`;
+                secenekler.forEach(harf => {
+                    html += `
+                        <label class="secenek-etiket">
+                            <input type="radio" name="soru_${i}" value="${harf}">
+                        </label>`;
+                });
+                satir.innerHTML = html;
+                sorularKonteyner.appendChild(satir);
+            }
+        }
+
+        document.getElementById('btnSorulariOlustur').addEventListener('click', sorulariOlustur);
+
+        function cevapMesajGoster(basarili, metin) {
+            cevapMesaj.textContent = metin;
+            cevapMesaj.classList.remove('hidden');
+            if (basarili) {
+                cevapMesaj.className = "text-xs rounded-lg p-3 bg-emerald-50 text-emerald-700 border border-emerald-200";
+            } else {
+                cevapMesaj.className = "text-xs rounded-lg p-3 bg-rose-50 text-rose-700 border border-rose-200";
+            }
+        }
+
+        document.getElementById('btnCevapKaydet').addEventListener('click', async () => {
+            const sinavAdi = document.getElementById('cevap_sinav_adi').value.trim();
+            const dersKodu = document.getElementById('cevap_ders_kodu').value.trim();
+
+            if (!sinavAdi) {
+                cevapMesajGoster(false, "Lütfen sınav adını girin.");
+                return;
+            }
+
+            const satirlar = sorularKonteyner.querySelectorAll('.soru-satiri');
+            if (satirlar.length === 0) {
+                cevapMesajGoster(false, "Önce 'Soruları Oluştur' butonuna basıp soru sayısını belirleyin.");
+                return;
+            }
+
+            const answers = {};
+            let eksikVar = false;
+
+            satirlar.forEach((satir, index) => {
+                const soruNo = index + 1;
+                const secili = satir.querySelector(`input[name="soru_${soruNo}"]:checked`);
+                if (secili) {
+                    answers[soruNo] = secili.value;
+                } else {
+                    eksikVar = true;
+                }
+            });
+
+            if (eksikVar) {
+                cevapMesajGoster(false, "Lütfen tüm sorular için bir şık işaretleyin.");
+                return;
+            }
+
+            const btn = document.getElementById('btnCevapKaydet');
+            btn.disabled = true;
+            btn.textContent = "Kaydediliyor...";
+
+            try {
+                const res = await fetch("{{ route('panel.cevapkaydet') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ exam_name: sinavAdi, ders_kodu: dersKodu, answers: answers })
+                });
+                const veri = await res.json();
+
+                if (veri.success) {
+                    cevapMesajGoster(true, "✓ Cevap anahtarı kaydedildi. Optik okuma artık bu anahtara göre yapılacak.");
+                } else {
+                    cevapMesajGoster(false, veri.message || "Kaydetme sırasında bir hata oluştu.");
+                }
+            } catch (err) {
+                cevapMesajGoster(false, "Sunucuya bağlanılamadı: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Cevap Anahtarını Kaydet";
+            }
+        });
+
+        // ---- OPTİK OKUT bölümü ----
         const fileInput = document.getElementById('optik_dosya');
         const previewImg = document.getElementById('onizleme-gorsel');
         const video = document.getElementById('webcam');
@@ -235,55 +420,50 @@
         });
 
         document.getElementById('btnFormuOkut').addEventListener('click', async () => {
-    lazer.style.display = 'block';
-    document.getElementById('btnFormuOkut').disabled = true;
-    document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
+            lazer.style.display = 'block';
+            document.getElementById('btnFormuOkut').disabled = true;
+            document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
 
-    setTimeout(async () => {
-        lazer.style.display = 'none';
-        document.getElementById('btnFormuOkut').disabled = false;
-        document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
+            const formData = new FormData();
+            const fileInput = document.getElementById('optik_dosya');
 
-        // YENİ EKLENEN KISIM: Fotoğrafı alıp bir FormData paketi oluşturuyoruz
-        const formData = new FormData();
-        const fileInput = document.getElementById('optik_dosya');
-        
-        // Eğer dosya seçilmişse bunu 'image' adıyla pakete ekle (PHP bu ismi bekliyor)
-        if(fileInput.files.length > 0) {
-            formData.append('image', fileInput.files[0]);
-        }
+            if(fileInput.files.length > 0) {
+                formData.append('image', fileInput.files[0]);
+            }
 
-        // FETCH KISMI GÜNCELLENDİ: body eklendi ve Content-Type silindi (Tarayıcı otomatik ayarlayacak)
-        const res = await fetch("{{ route('panel.okut') }}", {
-            method: 'POST',
-            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-            body: formData
-        });
-        
-        const veri = await res.json();
+            const res = await fetch("{{ route('panel.okut') }}", {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                body: formData
+            });
 
-        if (veri.success) {
-            const anlikSonuc = document.getElementById('anlikSonucAlani');
-            anlikSonuc.className = "bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-xl p-6 text-left shadow-lg h-64 flex flex-col justify-between";
-            anlikSonuc.innerHTML = `
-                <div>
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">✓ Optik Hizalama Başarılı</p>
-                    <h4 class="text-sm font-bold mt-2 text-slate-300">Öğrenci Adı: ${veri.ad_soyad}</h4>
-                    <p class="text-xs text-slate-400 mt-1">Numara: ${veri.ogrenci_no}</p>
-                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
-                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Doğru</p><p class="font-bold text-emerald-400 text-sm">${veri.dogru}</p></div>
-                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Yanlış</p><p class="font-bold text-rose-400 text-sm">${veri.yanlis}</p></div>
-                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Boş</p><p class="font-bold text-slate-300 text-sm">${veri.bos}</p></div>
+            lazer.style.display = 'none';
+            document.getElementById('btnFormuOkut').disabled = false;
+            document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
+
+            const veri = await res.json();
+
+            if (veri.success) {
+                // DEĞİŞTİ: "Öğrenci Adı" satırı kaldırıldı, sadece numara gösteriliyor.
+                const anlikSonuc = document.getElementById('anlikSonucAlani');
+                anlikSonuc.className = "bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-xl p-6 text-left shadow-lg h-64 flex flex-col justify-between";
+                anlikSonuc.innerHTML = `
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">✓ Optik Hizalama Başarılı</p>
+                        <h4 class="text-sm font-bold mt-2 text-slate-300">Öğrenci Numarası: ${veri.ogrenci_no}</h4>
+                        <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
+                            <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Doğru</p><p class="font-bold text-emerald-400 text-sm">${veri.dogru}</p></div>
+                            <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Yanlış</p><p class="font-bold text-rose-400 text-sm">${veri.yanlis}</p></div>
+                            <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Boş</p><p class="font-bold text-slate-300 text-sm">${veri.bos}</p></div>
+                        </div>
                     </div>
-                </div>
-                <div class="pt-3 border-t border-white/10 flex justify-between items-center">
-                    <span class="text-xs text-slate-400">Sınav Notu:</span><span class="text-2xl font-black text-amber-400">${veri.puan}</span>
-                </div>`;
-        } else {
-            alert("Okuma hatası: " + veri.message);
-        }
-    }, 2000);
-});
+                    <div class="pt-3 border-t border-white/10 flex justify-between items-center">
+                        <span class="text-xs text-slate-400">Sınav Notu:</span><span class="text-2xl font-black text-amber-400">${veri.puan}</span>
+                    </div>`;
+            } else {
+                alert("Okuma hatası: " + veri.message);
+            }
+        });
     </script>
 </body>
 </html>
