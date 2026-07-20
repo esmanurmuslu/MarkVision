@@ -27,7 +27,11 @@ disa aktarmasiyla olusur (bkz. sinav_bilgisi_ornek.json):
 """
 import os
 from dotenv import load_dotenv
+import cv2
+import sys
 
+# Scriptin bulunduğu klasöre geçiş yap
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv() # .env dosyasındaki bilgileri yükle
 import sys
 import json
@@ -151,32 +155,43 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
             "hata": "Kagit duzlestirilemedi (anchor bulunamadi).",
         }
 
+    # --- DEBUG: ALGORİTMANIN GÖZÜNDEN ÇİZİM ---
+    try:
+        # Öğrenci numarasının okunduğu piksellere Kırmızı yuvarlak çiz
+        for basamak, secenekler in harita["ogrenci_no"].items():
+            for rakam, kord in secenekler.items():
+                x, y = kord[0], kord[1]
+                cv2.circle(img_renkli, (int(x), int(y)), 10, (0, 0, 255), 2)
+
+        # Soruların okunduğu piksellere Mavi yuvarlak çiz
+        for soru in harita["sorular"][:toplam_soru]:
+            for k, v in soru.items():
+                if k != "soru_no":
+                    x, y = v[0], v[1]
+                    cv2.circle(img_renkli, (int(x), int(y)), 10, (255, 0, 0), 2)
+
+        # Çizilmiş görüntüyü resmi okuduğu klasöre kaydet
+        kayit_dizini = os.path.dirname(resim_yolu)
+        debug_yolu = os.path.join(kayit_dizini, "debug_algoritma_gozu.jpg")
+        cv2.imwrite(debug_yolu, img_renkli)
+    except Exception as e:
+        pass # Çizim sırasında hata olursa kod çökmesin, asıl işleme devam etsin
+    # --- DEBUG BİTİŞ ---
+
     ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
     cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
     puanlar = puanla(cevaplar, answer_key)
 
     ogrenci_no_okunabilir = "?" not in ogrenci_no_str
 
-    # status belirleme:
-    #   - kagit hic duzlestirilemediyse zaten yukarida "failed" donduk
-    #   - ogrenci no belirsizse ya da cift isaretlenmis soru varsa
-    #     -> ogretmenin gozden gecirmesi icin 'pending_review'
-    #   - aksi halde 'success'
     if not ogrenci_no_okunabilir or puanlar["gecersiz_sorular"]:
         status = "pending_review"
     else:
         status = "success"
 
-    # DIKKAT: Bu ic sonuc ogrenci_no icerir -- UBYS eslestirmesi icin
-    # gerekli. Frontend'e / "sonuc goruntusune" gonderilecek payload'da
-    # SADECE student_no birakilmali; ad-soyad (formda el yazisiyla
-    # yazilan, ayri bir OCR/insan kontrolu isi) backend/API katmaninda
-    # filtrelenmeli.
     return {
         "basarili": True,
         "exam_id": exam_id,
-        # DB'de student_no int -- okunamayan basamak varsa None donuyoruz,
-        # cunku sutun NULL kabul ediyor (ON DELETE SET NULL de bunu dogruluyor)
         "student_no": int(ogrenci_no_str) if ogrenci_no_okunabilir else None,
         "student_answers": {str(k): v for k, v in cevaplar.items()},
         "correct_count": puanlar["correct_count"],

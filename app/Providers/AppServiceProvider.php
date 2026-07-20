@@ -3,7 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Schema; // YENİ EKLENEN SATIR (1)
+
 use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider

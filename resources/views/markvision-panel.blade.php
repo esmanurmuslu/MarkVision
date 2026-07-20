@@ -235,43 +235,55 @@
         });
 
         document.getElementById('btnFormuOkut').addEventListener('click', async () => {
-            lazer.style.display = 'block';
-            document.getElementById('btnFormuOkut').disabled = true;
-            document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
+    lazer.style.display = 'block';
+    document.getElementById('btnFormuOkut').disabled = true;
+    document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
 
-            setTimeout(async () => {
-                lazer.style.display = 'none';
-                document.getElementById('btnFormuOkut').disabled = false;
-                document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
+    setTimeout(async () => {
+        lazer.style.display = 'none';
+        document.getElementById('btnFormuOkut').disabled = false;
+        document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
 
-                const res = await fetch("{{ route('panel.okut') }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                });
-                const veri = await res.json();
+        // YENİ EKLENEN KISIM: Fotoğrafı alıp bir FormData paketi oluşturuyoruz
+        const formData = new FormData();
+        const fileInput = document.getElementById('optik_dosya');
+        
+        // Eğer dosya seçilmişse bunu 'image' adıyla pakete ekle (PHP bu ismi bekliyor)
+        if(fileInput.files.length > 0) {
+            formData.append('image', fileInput.files[0]);
+        }
 
-                if (veri.success) {
-                    const anlikSonuc = document.getElementById('anlikSonucAlani');
-                    anlikSonuc.className = "bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-xl p-6 text-left shadow-lg h-64 flex flex-col justify-between";
-                    anlikSonuc.innerHTML = `
-                        <div>
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">✓ Optik Hizalama Başarılı</p>
-                            <h4 class="text-sm font-bold mt-2 text-slate-300">Öğrenci Adı: ${veri.ad_soyad}</h4>
-                            <p class="text-xs text-slate-400 mt-1">Numara: ${veri.ogrenci_no}</p>
-                            <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
-                                <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Doğru</p><p class="font-bold text-emerald-400 text-sm">${veri.dogru}</p></div>
-                                <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Yanlış</p><p class="font-bold text-rose-400 text-sm">${veri.yanlis}</p></div>
-                                <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Boş</p><p class="font-bold text-slate-300 text-sm">${veri.bos}</p></div>
-                            </div>
-                        </div>
-                        <div class="pt-3 border-t border-white/10 flex justify-between items-center">
-                            <span class="text-xs text-slate-400">Sınav Notu:</span><span class="text-2xl font-black text-amber-400">${veri.puan}</span>
-                        </div>`;
-                } else {
-                    alert("Okuma hatası: " + veri.message);
-                }
-            }, 2000);
+        // FETCH KISMI GÜNCELLENDİ: body eklendi ve Content-Type silindi (Tarayıcı otomatik ayarlayacak)
+        const res = await fetch("{{ route('panel.okut') }}", {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: formData
         });
+        
+        const veri = await res.json();
+
+        if (veri.success) {
+            const anlikSonuc = document.getElementById('anlikSonucAlani');
+            anlikSonuc.className = "bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-xl p-6 text-left shadow-lg h-64 flex flex-col justify-between";
+            anlikSonuc.innerHTML = `
+                <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">✓ Optik Hizalama Başarılı</p>
+                    <h4 class="text-sm font-bold mt-2 text-slate-300">Öğrenci Adı: ${veri.ad_soyad}</h4>
+                    <p class="text-xs text-slate-400 mt-1">Numara: ${veri.ogrenci_no}</p>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-center text-[11px]">
+                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Doğru</p><p class="font-bold text-emerald-400 text-sm">${veri.dogru}</p></div>
+                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Yanlış</p><p class="font-bold text-rose-400 text-sm">${veri.yanlis}</p></div>
+                        <div class="bg-white/5 rounded-lg p-2"><p class="text-slate-400">Boş</p><p class="font-bold text-slate-300 text-sm">${veri.bos}</p></div>
+                    </div>
+                </div>
+                <div class="pt-3 border-t border-white/10 flex justify-between items-center">
+                    <span class="text-xs text-slate-400">Sınav Notu:</span><span class="text-2xl font-black text-amber-400">${veri.puan}</span>
+                </div>`;
+        } else {
+            alert("Okuma hatası: " + veri.message);
+        }
+    }, 2000);
+});
     </script>
 </body>
 </html>
