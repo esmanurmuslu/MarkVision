@@ -1,40 +1,45 @@
 <?php
 
-namespace App\Models;
+namespace App\Jobs;
 
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\ExamResult;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
-class ExamResult extends Model
+class ProcessExamImageJob implements ShouldQueue
 {
-    protected $table = 'exam_results';
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $fillable = [
-        'student_no',
-        'exam_id',
-        'student_answers',
-        'correct_count',
-        'wrong_count',
-        'blank_count',
-        'score',
-        'status',
-        'optical_image_url'
-    ];
+    protected $examId;
+    protected $imagePath;
 
-    protected $casts = [
-        'student_answers' => 'array',
-        'score' => 'decimal:2',
-    ];
-
-    // Sonuç bir öğrenciye aittir
-    public function student(): BelongsTo
+    public function __construct($examId, $imagePath)
     {
-        return $this->belongsTo(Student::class, 'student_no', 'student_no');
+        $this->examId = $examId;
+        $this->imagePath = $imagePath;
     }
 
-    // Sonuç bir sınava aittir
-    public function exam(): BelongsTo
+    public function handle(): void
     {
-        return $this->belongsTo(Exam::class, 'exam_id');
+        $scriptPath = base_path('omr_scripts/pipeline_main.py');
+        $command = escapeshellcmd("python " . escapeshellarg($scriptPath) . " " . escapeshellarg($this->imagePath));
+        $output = shell_exec($command);
+
+        $data = json_decode($output, true);
+
+        if ($data && isset($data['student_no']) && isset($data['score'])) {
+            ExamResult::create([
+                'exam_id'    => $this->examId,
+                'student_no' => $data['student_no'],
+                'score'      => $data['score'],
+            ]);
+            Log::info("Sınav sonucu kaydedildi: " . $this->examId);
+        } else {
+            Log::error("Python çıktısı hatalı: " . $output);
+        }
     }
 }
