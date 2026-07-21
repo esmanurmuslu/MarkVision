@@ -6,15 +6,30 @@
     <title>MarkVision - Optik Okuma Paneli</title>
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <style>
-        body { overflow-x: hidden; width: 100vw; margin: 0; padding: 0; }
+        html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
+        body { min-height: 100vh; }
+
         @media (max-width: 768px) {
-            body { padding: 10px !important; width: 100vw !important; }
+            body { padding: 10px !important; }
             #main-dashboard { flex-direction: column; min-height: auto !important; }
             aside { width: 100% !important; padding: 1rem !important; }
             main { padding: 1rem !important; }
             #section-okuma { display: flex !important; flex-direction: column !important; }
             .col-span-2 { width: 100% !important; }
         }
+
+        /* Orijinal buzlu cam görünümü geri getirildi (backdrop-blur-xl).
+           Önceki ekran görüntülerinde köşede %25-%33 gibi kesirli zoom
+           seviyeleri görünüyordu — kartın "çoğalmış" görünmesinin sebebi
+           büyük ihtimalle budur, blur değil. isolation/contain hâlâ
+           GPU compositing'i stabilize etmeye yardımcı olur, blur'u
+           kaldırmadan bırakıyoruz. Tarayıcı zoom'unu %100'e getirmek
+           (Ctrl+0) bu görüntü sorununu çözer. */
+        #login-screen {
+            isolation: isolate;
+            contain: layout paint style;
+        }
+
         .kose-kutusu { position: relative; overflow: hidden; }
         .kose { position: absolute; width: 16px; height: 16px; border-color: #10b981; border-width: 3px; z-index: 20; }
         .sol-ust { top: 8px; left: 8px; border-right: 0; border-bottom: 0; }
@@ -94,6 +109,16 @@
             {{-- ============ OPTİK OKUT ============ --}}
             <div id="section-okuma" class="grid grid-cols-3 gap-6">
                 <div class="col-span-2 space-y-6">
+
+                    {{-- Cevap anahtarı yoksa gösterilen uyarı --}}
+                    <div id="uyariCevapYok" class="hidden flex items-start justify-between gap-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-xs">
+                        <div>
+                            <p class="font-bold">⚠ Önce bir cevap anahtarı oluşturmalısınız</p>
+                            <p class="mt-1 text-amber-700">Optik okuma yapabilmek için "Cevap Anahtarı" sekmesinden bir sınav eklemeniz gerekiyor.</p>
+                        </div>
+                        <button id="btnUyariCevapAnahtarinaGit" class="shrink-0 bg-amber-600 hover:bg-amber-500 text-white font-semibold px-3 py-2 rounded-lg cursor-pointer whitespace-nowrap">Cevap Anahtarına Git</button>
+                    </div>
+
                     <div class="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
                         <div class="flex gap-3">
                             <button id="btnYontemDosya" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 border border-blue-200 cursor-pointer">📁 Dosya Yükle</button>
@@ -116,7 +141,7 @@
                             </div>
                         </div>
 
-                        <button id="btnFormuOkut" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition">Formu Hizala ve Okut</button>
+                        <button id="btnFormuOkut" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Formu Hizala ve Okut</button>
                     </div>
                 </div>
 
@@ -221,6 +246,7 @@
                 loginScreen.classList.add('hidden'); mainDashboard.classList.remove('hidden');
                 mainBody.className = "bg-slate-100 min-h-screen text-slate-800 p-6 flex items-start justify-center";
                 document.getElementById('user-display-name').textContent = data.user.ad;
+                cevapAnahtariKontrolEt();
             } else {
                 const err = document.getElementById('login-error');
                 err.textContent = data.message;
@@ -250,6 +276,7 @@
             hepsiniGizle();
             secOkuma.classList.remove('hidden');
             menuOkut.className = aktifMenuSinifi;
+            cevapAnahtariKontrolEt();
         });
 
         menuCevap.addEventListener('click', () => {
@@ -259,6 +286,10 @@
             if (document.getElementById('sorular-konteyner').children.length === 0) {
                 sorulariOlustur();
             }
+        });
+
+        document.getElementById('btnUyariCevapAnahtarinaGit').addEventListener('click', () => {
+            menuCevap.click();
         });
 
         menuGecmis.addEventListener('click', async () => {
@@ -380,6 +411,8 @@
 
                 if (veri.success) {
                     cevapMesajGoster(true, "✓ Cevap anahtarı kaydedildi. Optik okuma artık bu anahtara göre yapılacak.");
+                    cevapAnahtariVarMi = true;
+                    guncelleOkumaDurumu();
                 } else {
                     cevapMesajGoster(false, veri.message || "Kaydetme sırasında bir hata oluştu.");
                 }
@@ -390,6 +423,34 @@
                 btn.textContent = "Cevap Anahtarını Kaydet";
             }
         });
+
+        // ============================================================
+        // Cevap anahtarı var mı yok mu kontrolü
+        // ============================================================
+        let cevapAnahtariVarMi = false;
+
+        async function cevapAnahtariKontrolEt() {
+            try {
+                const res = await fetch("{{ route('panel.cevapgetir') }}");
+                const veri = await res.json();
+                cevapAnahtariVarMi = !!(veri.success && veri.answers && Object.keys(veri.answers).length > 0);
+            } catch (err) {
+                cevapAnahtariVarMi = false;
+            }
+            guncelleOkumaDurumu();
+        }
+
+        function guncelleOkumaDurumu() {
+            const uyari = document.getElementById('uyariCevapYok');
+            const btn = document.getElementById('btnFormuOkut');
+            if (cevapAnahtariVarMi) {
+                uyari.classList.add('hidden');
+                btn.disabled = false;
+            } else {
+                uyari.classList.remove('hidden');
+                btn.disabled = true;
+            }
+        }
 
         // ---- OPTİK OKUT bölümü ----
         const fileInput = document.getElementById('optik_dosya');
@@ -420,6 +481,11 @@
         });
 
         document.getElementById('btnFormuOkut').addEventListener('click', async () => {
+            if (!cevapAnahtariVarMi) {
+                guncelleOkumaDurumu();
+                return;
+            }
+
             lazer.style.display = 'block';
             document.getElementById('btnFormuOkut').disabled = true;
             document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
@@ -444,7 +510,6 @@
             const veri = await res.json();
 
             if (veri.success) {
-                // DEĞİŞTİ: "Öğrenci Adı" satırı kaldırıldı, sadece numara gösteriliyor.
                 const anlikSonuc = document.getElementById('anlikSonucAlani');
                 anlikSonuc.className = "bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-xl p-6 text-left shadow-lg h-64 flex flex-col justify-between";
                 anlikSonuc.innerHTML = `

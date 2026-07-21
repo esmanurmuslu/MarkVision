@@ -18,10 +18,15 @@ class MarkVisionController extends Controller
    // Python'un tam yolu
     private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
 
+    // YENİ: aktif cevap anahtarının session key'i tek yerde tanımlı,
+    // böylece ileride değiştirmek istersek tek satır yeter.
+    private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
+
     public function index() // <-- 18. satır civarı
     {
         return view('markvision-panel');
     } // <-- 20. satır civarı
+
     public function login(Request $request)
     {
         try {
@@ -35,6 +40,13 @@ class MarkVisionController extends Controller
                     $userModel->forceFill((array) $teacher);
                 }
                 Auth::login($userModel);
+
+                // YENİ: Her yeni girişte, önceki oturumdan kalan "aktif cevap
+                // anahtarı" bilgisini temizliyoruz. Veritabanında eski bir
+                // Sinav kaydı olsa bile artık otomatik kullanılmayacak —
+                // kullanıcı bu oturumda "Cevap Anahtarı" sekmesinden
+                // MUTLAKA yeni bir tane girmek zorunda kalacak.
+                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
 
                 return response()->json([
                     'success' => true,
@@ -66,9 +78,6 @@ class MarkVisionController extends Controller
                 'answers.*' => 'required|string|in:A,B,C,D,E',
             ]);
 
-            // DÜZELTME: 'ders_kodu' sütunu veritabanında NOT NULL ve varsayılan
-            // değeri yok. Kullanıcı bu alanı boş bırakırsa sınav adından
-            // otomatik bir kod türetiyoruz, böylece SQL hatası bir daha oluşmaz.
             $dersKodu = trim((string) $request->input('ders_kodu'));
             if ($dersKodu === '') {
                 $dersKodu = strtoupper(Str::slug($request->input('exam_name'), '_'));
@@ -86,6 +95,11 @@ class MarkVisionController extends Controller
                 'cevap_anahtari' => $request->input('answers'),
             ]);
 
+            // YENİ: Bu sınav artık BU OTURUMUN aktif cevap anahtarı oluyor.
+            // Optik okuma ve "anahtar var mı?" kontrolü bundan sonra
+            // Sinav::latest() yerine bu session değerini kullanacak.
+            $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
+
             return response()->json([
                 'success'  => true,
                 'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
@@ -101,14 +115,26 @@ class MarkVisionController extends Controller
         }
     }
 
-    // --- EN SON CEVAP ANAHTARINI GETİR (formu doldurmak için) ---
-    public function getLatestAnswerKey()
+    // --- BU OTURUMDA AKTİF OLAN CEVAP ANAHTARINI GETİR ---
+    // (Formu doldurmak / "anahtar var mı" kontrolü için kullanılır)
+    public function getLatestAnswerKey(Request $request)
     {
         try {
-            $sinav = Sinav::latest()->first();
-            if (!$sinav) {
-                return response()->json(['success' => false]);
+            // DEĞİŞTİ: Artık veritabanındaki en son kayıt değil, SADECE bu
+            // oturumda kaydedilmiş olan sınav dikkate alınıyor.
+            $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+
+            if (!$sinavId) {
+                return response()->json(['success' => false, 'message' => 'Bu oturumda henüz bir cevap anahtarı girilmedi.']);
             }
+
+            $sinav = Sinav::find($sinavId);
+            if (!$sinav) {
+                // Sinav DB'den silinmiş olabilir — session'ı da temizle.
+                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                return response()->json(['success' => false, 'message' => 'Aktif cevap anahtarı bulunamadı.']);
+            }
+
             return response()->json([
                 'success'   => true,
                 'exam_name' => $sinav->sinav_adi,
@@ -124,20 +150,31 @@ class MarkVisionController extends Controller
     public function optikOkut(Request $request)
     {
         try {
-            // Frontend FormData ile gerçek dosya gönderiyor (base64 değil).
             $request->validate([
                 'image' => 'required|file|image|max:10240', // max 10MB
             ]);
 
-            // Her zaman EN SON kaydedilen cevap anahtarı kullanılır.
-            // Yani okuma islemi ancak cevap anahtari basariyla kaydedildikten
-            // sonra dogru calisir -- artik saveAnswerKey hata vermedigi icin
-            // bu akis her zaman guncel anahtari kullanacak.
-            $sinav = Sinav::latest()->first();
-            if (!$sinav || empty($sinav->cevap_anahtari)) {
+            // DEĞİŞTİ: Artık Sinav::latest() KULLANILMIYOR. Okuma işlemi
+            // sadece bu oturumda (session) aktif olarak işaretlenmiş
+            // cevap anahtarına göre yapılır. Veritabanında eski bir sınav
+            // kaydı olsa bile, kullanıcı bu oturumda yeniden "Cevap
+            // Anahtarı" sekmesinden bir anahtar kaydetmediyse okuma
+            // reddedilir.
+            $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+
+            if (!$sinavId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Önce "Cevap Anahtarı" bölümünden bir sınav cevap anahtarı kaydetmelisiniz.',
+                    'message' => 'Önce "Cevap Anahtarı" bölümünden bu oturum için bir cevap anahtarı kaydetmelisiniz.',
+                ], 422);
+            }
+
+            $sinav = Sinav::find($sinavId);
+            if (!$sinav || empty($sinav->cevap_anahtari)) {
+                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aktif cevap anahtarı bulunamadı. Lütfen "Cevap Anahtarı" bölümünden yeniden kaydedin.',
                 ], 422);
             }
 
@@ -205,9 +242,6 @@ class MarkVisionController extends Controller
             }
 
             // 4. Sonucu ogrenci_sonuclar tablosuna kaydet
-            // Bu, formu her hizala/okut dediginde -- okuma basarili oldugu
-            // surece (anchor/kose bulunabildigi surece, cevaplar yanlis
-            // olsa bile) -- Gecmis Sonuclar listesine bir kayit ekler.
             OgrenciSonuc::create([
                 'sinav_id'          => $sinav->id,
                 'ogrenci_no'        => $sonuc['student_no'] ?? null,
@@ -239,15 +273,6 @@ class MarkVisionController extends Controller
     public function gecmisSonuclar()
     {
         try {
-            // DÜZELTME: Daha önce OgrenciSonuc::with('sinav') kullanılıyordu.
-            // OgrenciSonuc modelinde 'sinav' adinda bir iliski (relationship)
-            // tanimli olmadigi icin bu satir Laravel'de bir istisna
-            // (BadMethodCallException) firlatiyordu; bu istisna asagidaki
-            // catch blogunda sessizce yakalanip 'success' => false donuyordu
-            // ve frontend de bunu "henuz kayit yok" olarak gosteriyordu --
-            // OYSA kayitlar veritabanina DOGRU sekilde dusuyordu, sadece bu
-            // listeleme sorgusu patliyordu. Artik iliskiye bagli olmadan,
-            // sinav_id uzerinden manuel eslestirme yapiyoruz.
             $sinavAdlari = Sinav::pluck('sinav_adi', 'id');
 
             $sonuclar = OgrenciSonuc::orderBy('id', 'desc')
