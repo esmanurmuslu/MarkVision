@@ -16,7 +16,7 @@ class MarkVisionController extends Controller
 {
     // Python'un tam yolu — kendi bilgisayarınızda where.exe/py -c ile bulduğumuz yol
    // Python'un tam yolu
-    private string $pythonPath = 'python';
+    private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
 
     // YENİ: aktif cevap anahtarının session key'i tek yerde tanımlı,
     // böylece ileride değiştirmek istersek tek satır yeter.
@@ -208,11 +208,6 @@ class MarkVisionController extends Controller
             $omrDir = base_path('omr_scripts');
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
             $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
-
-            // GEÇİCİ DOSYA İZİNLERİNİ AYARLADIĞIMIZ YENİ KISIM:
-            putenv('TMPDIR=' . $tempDir);
-            putenv('TEMP=' . $tempDir);
-            putenv('TMP=' . $tempDir);
 
             $result = Process::path($omrDir)
                 ->timeout(60)
