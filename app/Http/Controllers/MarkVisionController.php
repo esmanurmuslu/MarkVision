@@ -14,18 +14,14 @@ use App\Models\OgrenciSonuc;
 
 class MarkVisionController extends Controller
 {
-    // Python'un tam yolu — kendi bilgisayarınızda where.exe/py -c ile bulduğumuz yol
-   // Python'un tam yolu
     private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
 
-    // YENİ: aktif cevap anahtarının session key'i tek yerde tanımlı,
-    // böylece ileride değiştirmek istersek tek satır yeter.
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
-    public function index() // <-- 18. satır civarı
+    public function index()
     {
         return view('markvision-panel');
-    } // <-- 20. satır civarı
+    }
 
     public function login(Request $request)
     {
@@ -41,11 +37,6 @@ class MarkVisionController extends Controller
                 }
                 Auth::login($userModel);
 
-                // YENİ: Her yeni girişte, önceki oturumdan kalan "aktif cevap
-                // anahtarı" bilgisini temizliyoruz. Veritabanında eski bir
-                // Sinav kaydı olsa bile artık otomatik kullanılmayacak —
-                // kullanıcı bu oturumda "Cevap Anahtarı" sekmesinden
-                // MUTLAKA yeni bir tane girmek zorunda kalacak.
                 $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
 
                 return response()->json([
@@ -61,13 +52,80 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+    public function sifreDegistir(Request $request)
+   {
+    $request->validate([
+        'eski_sifre' => 'required',
+        'yeni_sifre' => 'required|min:6',
+    ]);
 
+    $user = auth()->user(); // veya oturumdaki öğretmen
+
+    if (!Hash::check($request->eski_sifre, $user->password)) {
+        return response()->json(['success' => false, 'message' => 'Mevcut şifre yanlış.']);
+    }
+
+    $user->password = Hash::make($request->yeni_sifre);
+    $user->save();
+
+    return response()->json(['success' => true]);
+    }
     public function showRegister()
     {
         return view('auth.register');
     }
 
-    // --- CEVAP ANAHTARI KAYDET ---
+    // --- YENİ: KAYIT OL FORMUNU İŞLE ---
+    // NOT: Gönderdiğin form verisine bakarak 'teachers' tablosunda
+    // name, surname, email, tc_no, password kolonları olduğunu
+    // varsaydım. Gerçek migration'ında kolon adları farklıysa
+    // (örn. tc_no yerine tc_kimlik_no gibi) bana söyle, düzeltelim.
+    public function registerStore(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name'     => 'required|string|max:100',
+                'surname'  => 'required|string|max:100',
+                'email'    => 'required|email|max:150|unique:teachers,email',
+                'tc_no'    => 'required|string|max:11|unique:teachers,tc_no',
+                'password' => 'required|string|min:6',
+            ], [
+                'email.unique' => 'Bu e-posta adresi zaten kayıtlı.',
+                'tc_no.unique' => 'Bu TC kimlik numarası zaten kayıtlı.',
+            ]);
+
+            $teacherId = DB::table('teachers')->insertGetId([
+                'name'       => $validated['name'],
+                'surname'    => $validated['surname'],
+                'email'      => $validated['email'],
+                'tc_no'      => $validated['tc_no'],
+                'password'   => Hash::make($validated['password']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Kayıt olur olmaz otomatik giriş yaptırıyoruz.
+            $teacher = DB::table('teachers')->find($teacherId);
+            $userModel = User::find($teacher->id);
+            if (!$userModel) {
+                $userModel = new User();
+                $userModel->forceFill((array) $teacher);
+            }
+            Auth::login($userModel);
+
+            return redirect()->route('panel.index')->with('success', 'Kayıt başarılı! Hoş geldiniz.');
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()
+                ->withErrors($e->errors())
+                ->withInput($request->except('password'));
+        } catch (\Exception $e) {
+            return back()
+                ->withErrors(['general' => 'Kayıt sırasında bir hata oluştu: ' . $e->getMessage()])
+                ->withInput($request->except('password'));
+        }
+    }
+
     public function saveAnswerKey(Request $request)
     {
         try {
@@ -95,9 +153,6 @@ class MarkVisionController extends Controller
                 'cevap_anahtari' => $request->input('answers'),
             ]);
 
-            // YENİ: Bu sınav artık BU OTURUMUN aktif cevap anahtarı oluyor.
-            // Optik okuma ve "anahtar var mı?" kontrolü bundan sonra
-            // Sinav::latest() yerine bu session değerini kullanacak.
             $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
 
             return response()->json([
@@ -115,13 +170,9 @@ class MarkVisionController extends Controller
         }
     }
 
-    // --- BU OTURUMDA AKTİF OLAN CEVAP ANAHTARINI GETİR ---
-    // (Formu doldurmak / "anahtar var mı" kontrolü için kullanılır)
     public function getLatestAnswerKey(Request $request)
     {
         try {
-            // DEĞİŞTİ: Artık veritabanındaki en son kayıt değil, SADECE bu
-            // oturumda kaydedilmiş olan sınav dikkate alınıyor.
             $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
 
             if (!$sinavId) {
@@ -130,7 +181,6 @@ class MarkVisionController extends Controller
 
             $sinav = Sinav::find($sinavId);
             if (!$sinav) {
-                // Sinav DB'den silinmiş olabilir — session'ı da temizle.
                 $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
                 return response()->json(['success' => false, 'message' => 'Aktif cevap anahtarı bulunamadı.']);
             }
@@ -146,20 +196,13 @@ class MarkVisionController extends Controller
         }
     }
 
-    // --- OPTİK FORMU OKU (GERÇEK PYTHON PIPELINE ÇAĞRISI) ---
     public function optikOkut(Request $request)
     {
         try {
             $request->validate([
-                'image' => 'required|file|image|max:10240', // max 10MB
+                'image' => 'required|file|image|max:10240',
             ]);
 
-            // DEĞİŞTİ: Artık Sinav::latest() KULLANILMIYOR. Okuma işlemi
-            // sadece bu oturumda (session) aktif olarak işaretlenmiş
-            // cevap anahtarına göre yapılır. Veritabanında eski bir sınav
-            // kaydı olsa bile, kullanıcı bu oturumda yeniden "Cevap
-            // Anahtarı" sekmesinden bir anahtar kaydetmediyse okuma
-            // reddedilir.
             $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
 
             if (!$sinavId) {
@@ -181,7 +224,6 @@ class MarkVisionController extends Controller
             $answerKey = $sinav->cevap_anahtari;
             $totalQuestions = count($answerKey);
 
-            // 1. Yüklenen dosyayı diske kaydet
             $publicDir = storage_path('app/public/optik_forms');
             if (!is_dir($publicDir)) mkdir($publicDir, 0777, true);
 
@@ -192,7 +234,6 @@ class MarkVisionController extends Controller
             $uploadedFile->move($publicDir, $imageName);
             $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
 
-            // 2. Geçici sinav_bilgisi.json dosyasını oluştur
             $tempDir = storage_path('app/temp');
             if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
 
@@ -204,7 +245,6 @@ class MarkVisionController extends Controller
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
 
-            // 3. Python pipeline'ını çalıştır
             $omrDir = base_path('omr_scripts');
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
             $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
@@ -241,7 +281,6 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
-            // 4. Sonucu ogrenci_sonuclar tablosuna kaydet
             OgrenciSonuc::create([
                 'sinav_id'          => $sinav->id,
                 'ogrenci_no'        => $sonuc['student_no'] ?? null,
@@ -269,7 +308,6 @@ class MarkVisionController extends Controller
         }
     }
 
-    // --- GEÇMİŞ SONUÇLAR (veritabanından çeker) ---
     public function gecmisSonuclar()
     {
         try {

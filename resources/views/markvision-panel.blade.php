@@ -11,11 +11,62 @@
 
         @media (max-width: 768px) {
             body { padding: 10px !important; }
-            #main-dashboard { flex-direction: column; min-height: auto !important; }
-            aside { width: 100% !important; padding: 1rem !important; }
+            #main-dashboard { flex-direction: column; min-height: auto !important; padding-bottom: 82px; }
+            aside { display: none !important; }
             main { padding: 1rem !important; }
-            #section-okuma { display: flex !important; flex-direction: column !important; }
+            #section-okuma:not(.hidden) { display: flex !important; flex-direction: column !important; }
             .col-span-2 { width: 100% !important; }
+
+            #mobil-alt-menu:not(.hidden) { display: flex !important; }
+        }
+
+        /* ============ Mobil Alt Menü (4 sekme) ============ */
+        /* Varsayılan olarak HER ZAMAN gizli: giriş ekranındayken görünmemeli.
+           Sadece main-dashboard açıldığında JS ile "hidden" sınıfı kaldırılır. */
+        #mobil-alt-menu {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 50;
+            background: #f8fafc;
+            border-top: 1px solid #cbd5e1;
+            padding: 6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;
+            box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.14);
+        }
+        #mobil-alt-menu .mobil-nav-grid {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            width: 100%;
+            max-width: 480px;
+            margin: 0 auto;
+        }
+        .mobil-nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 3px;
+            padding: 7px 6px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex: 1 1 0;
+            max-width: 110px;
+        }
+        .mobil-nav-btn .mobil-ikon {
+            font-size: 19px;
+            line-height: 1;
+        }
+        .mobil-nav-btn.mobil-aktif {
+            color: #1d4ed8;
+            background: #dbeafe;
         }
 
         /* Orijinal buzlu cam görünümü geri getirildi (backdrop-blur-xl).
@@ -93,6 +144,7 @@
                     <button id="menu-okut" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer">🎯 Optik Okut</button>
                     <button id="menu-cevap" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer">📝 Cevap Anahtarı</button>
                     <button id="menu-gecmis" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer">🕒 Geçmiş Sonuçlar</button>
+                    <button id="menu-ogretmen" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer">👤 Öğretmen</button>
                 </nav>
             </div>
             <div class="pt-4 flex items-center justify-between border-t border-slate-200">
@@ -224,7 +276,70 @@
                     </table>
                 </div>
             </div>
+
+            {{-- ============ ÖĞRETMEN (mobil + web ortak) ============ --}}
+            <div id="section-ogretmen" class="hidden max-w-xl mx-auto space-y-6">
+
+                {{-- Profil kartı --}}
+                <div class="bg-white rounded-2xl border border-slate-200 p-8">
+                    <div class="flex flex-col items-center text-center">
+                        <div id="sayfa-ogretmen-avatar" class="w-20 h-20 rounded-full mb-4 bg-gradient-to-br from-blue-700 to-slate-900 text-white text-2xl font-extrabold flex items-center justify-center shadow-md">?</div>
+                        <h2 id="sayfa-ogretmen-ad" class="text-lg font-bold text-slate-800">—</h2>
+                        <span class="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1 rounded-full">👨‍🏫 Öğretmen</span>
+                        <p id="sayfa-ogretmen-email" class="text-xs text-slate-400 mt-3 break-all">—</p>
+                    </div>
+                </div>
+
+                {{-- Şifre değiştir --}}
+                <div class="bg-white rounded-2xl border border-slate-200 p-8">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">🔒 Şifre Değiştir</h3>
+                    <p class="text-xs text-slate-400 mt-1 mb-5">Hesap güvenliğiniz için şifrenizi güncelleyebilirsiniz.</p>
+
+                    <div id="sifre-mesaj" class="hidden text-xs rounded-lg p-3 mb-4"></div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-500 uppercase">Mevcut Şifre</label>
+                            <input type="password" id="sifre_eski" placeholder="••••••••" class="w-full mt-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-500 uppercase">Yeni Şifre</label>
+                            <input type="password" id="sifre_yeni" placeholder="••••••••" class="w-full mt-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="text-[11px] font-semibold text-slate-500 uppercase">Yeni Şifre (Tekrar)</label>
+                            <input type="password" id="sifre_yeni_tekrar" placeholder="••••••••" class="w-full mt-1 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                        </div>
+                    </div>
+
+                    <button id="btnSifreGuncelle" class="w-full mt-5 bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed">Şifreyi Güncelle</button>
+                </div>
+
+                <button id="sayfa-cikis-btn" class="w-full bg-rose-50 text-rose-600 font-semibold text-sm py-3.5 rounded-xl cursor-pointer hover:bg-rose-100 transition">Çıkış Yap</button>
+            </div>
         </main>
+    </div>
+
+    {{-- ============ MOBİL ALT MENÜ (4 sekme) — sadece giriş yapıldıktan sonra görünür ============ --}}
+    <div id="mobil-alt-menu" class="hidden">
+        <div class="mobil-nav-grid">
+            <button id="mobil-nav-okut" class="mobil-nav-btn mobil-aktif">
+                <span class="mobil-ikon">🎯</span>
+                <span>Optik Okut</span>
+            </button>
+            <button id="mobil-nav-cevap" class="mobil-nav-btn">
+                <span class="mobil-ikon">📝</span>
+                <span>Cevap Anah.</span>
+            </button>
+            <button id="mobil-nav-gecmis" class="mobil-nav-btn">
+                <span class="mobil-ikon">🕒</span>
+                <span>Geçmiş</span>
+            </button>
+            <button id="mobil-nav-ogretmen" class="mobil-nav-btn">
+                <span class="mobil-ikon">👤</span>
+                <span>Öğretmen</span>
+            </button>
+        </div>
     </div>
 
     <script>
@@ -233,19 +348,33 @@
         const mainDashboard = document.getElementById('main-dashboard');
         const mainBody = document.getElementById('main-body');
         const lazer = document.getElementById('lazer');
+        const mobilAltMenu = document.getElementById('mobil-alt-menu');
+
+        let girisYapanEmail = '';
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const emailDeger = document.getElementById('email').value;
+
             const response = await fetch("{{ route('panel.login') }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value })
+                body: JSON.stringify({ email: emailDeger, password: document.getElementById('password').value })
             });
             const data = await response.json();
             if (data.success) {
                 loginScreen.classList.add('hidden'); mainDashboard.classList.remove('hidden');
+                mobilAltMenu.classList.remove('hidden'); // mobil menü sadece giriş sonrası görünür
                 mainBody.className = "bg-slate-100 min-h-screen text-slate-800 p-6 flex items-start justify-center";
                 document.getElementById('user-display-name').textContent = data.user.ad;
+
+                // ---- Öğretmen sayfasını (mobil + web) doldur ----
+                girisYapanEmail = emailDeger;
+                document.getElementById('sayfa-ogretmen-ad').textContent = data.user.ad;
+                document.getElementById('sayfa-ogretmen-email').textContent = girisYapanEmail;
+                const bashHarf = (data.user.ad || '?').trim().charAt(0).toUpperCase();
+                document.getElementById('sayfa-ogretmen-avatar').textContent = bashHarf;
+
                 cevapAnahtariKontrolEt();
             } else {
                 const err = document.getElementById('login-error');
@@ -254,28 +383,43 @@
             }
         });
 
-        // ---- Menü / Sekme geçişleri ----
+        // ---- Menü / Sekme geçişleri (masaüstü) ----
         const menuOkut = document.getElementById('menu-okut');
         const menuCevap = document.getElementById('menu-cevap');
         const menuGecmis = document.getElementById('menu-gecmis');
+        const menuOgretmen = document.getElementById('menu-ogretmen');
         const secOkuma = document.getElementById('section-okuma');
         const secCevap = document.getElementById('section-cevap');
         const secGecmis = document.getElementById('section-gecmis');
+        const secOgretmen = document.getElementById('section-ogretmen');
+
+        // ---- Mobil alt menü düğmeleri ----
+        const mobilOkut = document.getElementById('mobil-nav-okut');
+        const mobilCevap = document.getElementById('mobil-nav-cevap');
+        const mobilGecmis = document.getElementById('mobil-nav-gecmis');
+        const mobilOgretmen = document.getElementById('mobil-nav-ogretmen');
 
         const aktifMenuSinifi = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold bg-blue-50 text-blue-700 rounded-xl border border-blue-100 cursor-pointer";
         const pasifMenuSinifi = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-200/50 rounded-xl transition cursor-pointer";
+
+        function mobilAktifAyarla(aktifId) {
+            [mobilOkut, mobilCevap, mobilGecmis, mobilOgretmen].forEach(btn => btn.classList.remove('mobil-aktif'));
+            if (aktifId) document.getElementById(aktifId).classList.add('mobil-aktif');
+        }
 
         function hepsiniGizle() {
             secOkuma.classList.add('hidden');
             secCevap.classList.add('hidden');
             secGecmis.classList.add('hidden');
-            [menuOkut, menuCevap, menuGecmis].forEach(b => b.className = pasifMenuSinifi);
+            secOgretmen.classList.add('hidden');
+            [menuOkut, menuCevap, menuGecmis, menuOgretmen].forEach(b => b.className = pasifMenuSinifi);
         }
 
         menuOkut.addEventListener('click', () => {
             hepsiniGizle();
             secOkuma.classList.remove('hidden');
             menuOkut.className = aktifMenuSinifi;
+            mobilAktifAyarla('mobil-nav-okut');
             cevapAnahtariKontrolEt();
         });
 
@@ -283,19 +427,17 @@
             hepsiniGizle();
             secCevap.classList.remove('hidden');
             menuCevap.className = aktifMenuSinifi;
+            mobilAktifAyarla('mobil-nav-cevap');
             if (document.getElementById('sorular-konteyner').children.length === 0) {
                 sorulariOlustur();
             }
-        });
-
-        document.getElementById('btnUyariCevapAnahtarinaGit').addEventListener('click', () => {
-            menuCevap.click();
         });
 
         menuGecmis.addEventListener('click', async () => {
             hepsiniGizle();
             secGecmis.classList.remove('hidden');
             menuGecmis.className = aktifMenuSinifi;
+            mobilAktifAyarla('mobil-nav-gecmis');
 
             const res = await fetch("{{ route('panel.gecmis') }}");
             const veriler = await res.json();
@@ -317,6 +459,88 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">Henüz kayıtlı optik tarama sonucu bulunamadı.</td></tr>`;
             } else {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500">Sonuçlar yüklenemedi: ${veriler.message ?? 'Bilinmeyen hata'}</td></tr>`;
+            }
+        });
+
+        menuOgretmen.addEventListener('click', () => {
+            hepsiniGizle();
+            secOgretmen.classList.remove('hidden');
+            menuOgretmen.className = aktifMenuSinifi;
+            mobilAktifAyarla('mobil-nav-ogretmen');
+        });
+
+        document.getElementById('btnUyariCevapAnahtarinaGit').addEventListener('click', () => {
+            menuCevap.click();
+        });
+
+        // ---- Mobil alt menü tıklamaları, masaüstü mantığını tetikler ----
+        mobilOkut.addEventListener('click', () => menuOkut.click());
+        mobilCevap.addEventListener('click', () => menuCevap.click());
+        mobilGecmis.addEventListener('click', () => menuGecmis.click());
+        mobilOgretmen.addEventListener('click', () => menuOgretmen.click());
+
+        document.getElementById('sayfa-cikis-btn').addEventListener('click', () => {
+            if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+                window.location.reload();
+            }
+        });
+
+        // ---- ÖĞRETMEN: Şifre Değiştir ----
+        function sifreMesajGoster(basarili, metin) {
+            const el = document.getElementById('sifre-mesaj');
+            el.textContent = metin;
+            el.classList.remove('hidden');
+            el.className = basarili
+                ? "text-xs rounded-lg p-3 mb-4 bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "text-xs rounded-lg p-3 mb-4 bg-rose-50 text-rose-700 border border-rose-200";
+        }
+
+        document.getElementById('btnSifreGuncelle').addEventListener('click', async () => {
+            const eski = document.getElementById('sifre_eski').value;
+            const yeni = document.getElementById('sifre_yeni').value;
+            const tekrar = document.getElementById('sifre_yeni_tekrar').value;
+
+            if (!eski || !yeni || !tekrar) {
+                sifreMesajGoster(false, "Lütfen tüm alanları doldurun.");
+                return;
+            }
+            if (yeni.length < 6) {
+                sifreMesajGoster(false, "Yeni şifre en az 6 karakter olmalı.");
+                return;
+            }
+            if (yeni !== tekrar) {
+                sifreMesajGoster(false, "Yeni şifreler birbiriyle eşleşmiyor.");
+                return;
+            }
+
+            const btn = document.getElementById('btnSifreGuncelle');
+            btn.disabled = true;
+            btn.textContent = "Güncelleniyor...";
+
+            try {
+                const res = await fetch("{{ route('panel.sifredegistir') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ eski_sifre: eski, yeni_sifre: yeni })
+                });
+                const veri = await res.json();
+
+                if (veri.success) {
+                    sifreMesajGoster(true, "✓ Şifreniz başarıyla güncellendi.");
+                    document.getElementById('sifre_eski').value = "";
+                    document.getElementById('sifre_yeni').value = "";
+                    document.getElementById('sifre_yeni_tekrar').value = "";
+                } else {
+                    sifreMesajGoster(false, veri.message || "Şifre güncellenemedi.");
+                }
+            } catch (err) {
+                sifreMesajGoster(false, "Sunucuya bağlanılamadı: " + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Şifreyi Güncelle";
             }
         });
 

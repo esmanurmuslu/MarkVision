@@ -12,10 +12,13 @@ Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut'])->name('pa
 // --- Geçmiş sonuçlar ---
 Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])->name('panel.gecmis');
 
-// --- YENİ: Cevap anahtarı kaydet / getir ---
+// --- Cevap anahtarı kaydet / getir ---
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey'])->name('panel.cevapkaydet');
 Route::get('/cevap-anahtari-getir', [MarkVisionController::class, 'getLatestAnswerKey'])->name('panel.cevapgetir');
 
 // --- Kayıt ---
 Route::get('/register', [MarkVisionController::class, 'showRegister'])->name('register');
 Route::post('/register', [MarkVisionController::class, 'registerStore'])->name('register.store');
+
+// --- Şifre değiştir ---
+Route::post('/panel/sifre-degistir', [MarkVisionController::class, 'sifreDegistir'])->name('panel.sifredegistir');
