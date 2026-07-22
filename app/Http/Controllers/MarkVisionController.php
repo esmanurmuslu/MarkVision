@@ -14,7 +14,7 @@ use App\Models\OgrenciSonuc;
 
 class MarkVisionController extends Controller
 {
-    private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
+    private string $pythonPath = 'python';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
