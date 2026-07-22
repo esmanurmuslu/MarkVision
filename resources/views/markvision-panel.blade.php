@@ -637,8 +637,13 @@
                     cevapMesajGoster(true, "✓ Cevap anahtarı kaydedildi. Optik okuma artık bu anahtara göre yapılacak.");
                     cevapAnahtariVarMi = true;
                     guncelleOkumaDurumu();
+                    
+                    // EKLENEN KISIM: Otomatik olarak Optik Okut sekmesine geç
+                    setTimeout(() => {
+                        document.getElementById('menu-okut').click();
+                    }, 800); // Kullanıcı mesajı görsün diye yarım saniyelik minik bir gecikme ekledik
+                    
                 } else {
-                    cevapMesajGoster(false, veri.message || "Kaydetme sırasında bir hata oluştu.");
                 }
             } catch (err) {
                 cevapMesajGoster(false, "Sunucuya bağlanılamadı: " + err.message);
