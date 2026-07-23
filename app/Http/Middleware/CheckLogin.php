@@ -11,7 +11,7 @@ class CheckLogin
     public function handle(Request $request, Closure $next): Response
     {
         if (!session()->has('teacher_id')) {
-            return redirect()->route('login');
+            return redirect()->route('obs.login');
         }
 
         return $next($request);

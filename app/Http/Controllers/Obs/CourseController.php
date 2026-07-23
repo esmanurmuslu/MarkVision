@@ -22,7 +22,7 @@ class CourseController extends Controller
             ->orderBy('course_code')
             ->paginate(10);
 
-        return view('courses.index', compact('courses', 'search'));
+       return view('obs.courses.index', compact('courses', 'search'));
     }
 
     // Ders Ekleme Formu
@@ -30,7 +30,7 @@ class CourseController extends Controller
     {
         $departments = Department::orderBy('department_name')->get();
 
-        return view('courses.create', compact('departments'));
+      return view('obs.courses.create', compact('departments'));
     }
 
     // Ders Kaydet
@@ -44,7 +44,7 @@ class CourseController extends Controller
 
         Course::create($request->all());
 
-        return redirect()->route('courses.index')
+        return redirect()->route('obs.courses.index')
             ->with('success', 'Ders başarıyla eklendi.');
     }
 
@@ -54,7 +54,7 @@ class CourseController extends Controller
         $course = Course::findOrFail($id);
         $departments = Department::orderBy('department_name')->get();
 
-        return view('courses.edit', compact('course', 'departments'));
+        return view('obs.courses.edit', compact('course', 'departments'));
     }
 
     // Güncelle
@@ -70,7 +70,7 @@ class CourseController extends Controller
 
         $course->update($request->all());
 
-        return redirect()->route('courses.index')
+        return redirect()->route('obs.courses.index')
             ->with('success', 'Ders başarıyla güncellendi.');
     }
 
@@ -81,7 +81,7 @@ class CourseController extends Controller
 
         $course->delete();
 
-        return redirect()->route('courses.index')
+        return redirect()->route('obs.courses.index')
             ->with('success', 'Ders başarıyla silindi.');
     }
 }

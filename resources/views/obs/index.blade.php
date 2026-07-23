@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('obs.layouts.app')
 
 @section('title', 'OBS Öğrenci Listesi')
 

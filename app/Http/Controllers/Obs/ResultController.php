@@ -24,14 +24,14 @@ class ResultController extends Controller
 
         ->paginate(15);
 
-    return view('results.index', compact('results','search'));
+    return view('obs.results.index', compact('results','search'));
 }
 
 public function show($id)
 {
     $result = \App\Models\ExamResult::with(['student', 'exam'])->findOrFail($id);
 
-    return view('results.show', compact('result'));
+    return view('obs.results.show', compact('result'));
 }
 
 public function export()

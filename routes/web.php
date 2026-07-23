@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\Obs\AuthController;
 use App\Http\Controllers\Obs\ObsController;
 use App\Http\Controllers\Obs\DashboardController;
@@ -9,80 +11,71 @@ use App\Http\Controllers\Obs\DepartmentController;
 use App\Http\Controllers\Obs\CourseController;
 use App\Http\Controllers\Obs\ExamController;
 use App\Http\Controllers\Obs\ResultController;
+
 /*
 |--------------------------------------------------------------------------
 | OBS MODÜLÜ
 |--------------------------------------------------------------------------
-| Tüm OBS sistemi artık /obs altında çalışacak.
+|
+| Tüm OBS sistemi /obs altında çalışır.
+|
 | Örnek:
 | /obs/login
 | /obs/students
 | /obs/results
-| /obs/teachers
+|
 |--------------------------------------------------------------------------
 */
 
-Route::prefix('obs')->group(function () {
+// Ana dizine girildiğinde direkt OBS logine yönlendir
+Route::redirect('/', '/obs/login');
 
-    // Giriş
-    Route::get('/login', [AuthController::class, 'showLogin'])
-        ->name('login');
+Route::prefix('obs')
+    ->name('obs.')
+    ->group(function () {
 
-    Route::post('/login', [AuthController::class, 'login'])
-        ->name('login.post');
+        /*
+        |--------------------------------------------------------------------------
+        | AUTH (GİRİŞ EKRANI)
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+        Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 
-    // Giriş yapan kullanıcılar
-    Route::middleware('check.login')->group(function () {
+        /*
+        |--------------------------------------------------------------------------
+        | LOGIN GEREKTİREN ALANLAR
+        |--------------------------------------------------------------------------
+        */
+        Route::middleware('check.login')->group(function () {
 
-        // Dashboard
-        Route::get('/', [DashboardController::class, 'index'])
-            ->name('dashboard');
+            // Dashboard
+            Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-        // Çıkış
-        Route::post('/logout', [AuthController::class, 'logout'])
-            ->name('logout');
+            // Logout
+            Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-        // Öğrenciler
-        Route::resource('students', StudentController::class);
+            // OBS CRUD (Öğrenci, Öğretmen, Bölüm vb. Yönetimi)
+            Route::resource('students', StudentController::class);
+            Route::resource('teachers', TeacherController::class)
+    ->except(['create', 'store']);
+            Route::resource('departments', DepartmentController::class);
+            Route::resource('courses', CourseController::class);
+            Route::resource('exams', ExamController::class);
 
-        // Öğretmenler
-        Route::resource('teachers', TeacherController::class);
+            // Results (Sonuçlar)
+            Route::get('/results', [ResultController::class, 'index'])->name('results.index');
+            Route::get('/results/{result}', [ResultController::class, 'show'])->name('results.show');
+            Route::get('/results/export', [ResultController::class, 'export'])->name('results.export');
 
-        // Bölümler
-        Route::resource('departments', DepartmentController::class);
+            // Optik Okuma İşlemleri
+            Route::get('/tarama', [ObsController::class, 'index'])->name('tarama');
+            Route::get('/pending', [ObsController::class, 'pendingReviews'])->name('pending');
+            Route::post('/api/optical-scan', [ObsController::class, 'storeOpticalScan'])->name('scan');
 
-        // Dersler
-        Route::resource('courses', CourseController::class);
-
-        // Sınavlar
-        Route::resource('exams', ExamController::class);
-
-        // Sonuçlar
-        Route::get('/results', [ResultController::class, 'index'])
-            ->name('results.index');
-
-        Route::get('/results/{result}', [ResultController::class, 'show'])
-            ->name('results.show');
-
-        Route::get('/results/export', [ResultController::class, 'export'])
-            ->name('results.export');
-
-        // Optik Okuma
-        Route::get('/tarama', [ObsController::class, 'index'])
-            ->name('obs.students');
-
-        Route::get('/pending', [ObsController::class, 'pendingReviews'])
-            ->name('obs.pending');
-
-        Route::post('/api/optical-scan', [ObsController::class, 'storeOpticalScan'])
-            ->name('obs.scan');
-
-        // Cevap Anahtarı
-        Route::get('/exams/{exam}/answer-key', [ExamController::class, 'answerKey'])
-            ->name('exams.answerkey');
-
-        Route::post('/exams/{exam}/answer-key', [ExamController::class, 'saveAnswerKey'])
-            ->name('exams.answerkey.save');
+            // Cevap Anahtarı İşlemleri
+            Route::get('/exams/{exam}/answer-key', [ExamController::class, 'answerKey'])->name('exams.answerkey');
+            Route::post('/exams/{exam}/answer-key', [ExamController::class, 'saveAnswerKey'])->name('exams.answerkey.save');
+            
+        });
     });
-
-});

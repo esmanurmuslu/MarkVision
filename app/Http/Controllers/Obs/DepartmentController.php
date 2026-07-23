@@ -21,7 +21,7 @@ class DepartmentController extends Controller
             ->orderBy('department_name')
             ->paginate(10);
 
-        return view('departments.index', compact('departments', 'search'));
+        return view('obs.departments.index', compact('departments', 'search'));
     }
 
     // Ekleme Formu
@@ -29,7 +29,7 @@ class DepartmentController extends Controller
     {
         $faculties = Faculty::orderBy('faculty_name')->get();
 
-        return view('departments.create', compact('faculties'));
+        return view('obs.departments.create', compact('faculties'));
     }
 
     // Kaydet
@@ -43,7 +43,7 @@ class DepartmentController extends Controller
 
         Department::create($request->all());
 
-        return redirect()->route('departments.index')
+        return redirect()->route('obs.departments.index')
             ->with('success','Bölüm başarıyla eklendi.');
     }
 
@@ -53,7 +53,7 @@ class DepartmentController extends Controller
         $department = Department::findOrFail($id);
         $faculties = Faculty::orderBy('faculty_name')->get();
 
-        return view('departments.edit', compact('department','faculties'));
+        return view('obs.departments.edit', compact('department','faculties'));
     }
 
     // Güncelle
@@ -69,7 +69,7 @@ class DepartmentController extends Controller
 
         $department->update($request->all());
 
-        return redirect()->route('departments.index')
+        return redirect()->route('obs.departments.index')
             ->with('success','Bölüm güncellendi.');
     }
 
@@ -78,7 +78,7 @@ class DepartmentController extends Controller
     {
         Department::findOrFail($id)->delete();
 
-        return redirect()->route('departments.index')
+        return redirect()->route('obs.departments.index')
             ->with('success','Bölüm silindi.');
     }
 }

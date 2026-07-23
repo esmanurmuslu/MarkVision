@@ -12,7 +12,7 @@ class AuthController extends Controller
     // Login ekranı
     public function showLogin()
     {
-        return view('auth.login');
+       return view('obs.auth.login');
     }
 
     // Giriş işlemi
@@ -38,7 +38,7 @@ class AuthController extends Controller
             'teacher_name' => $teacher->name . ' ' . $teacher->surname
         ]);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('obs.dashboard');
     }
 
     // Çıkış
@@ -46,6 +46,6 @@ class AuthController extends Controller
     {
         session()->flush();
 
-        return redirect()->route('login');
+        return redirect()->route('obs.login');
     }
 }

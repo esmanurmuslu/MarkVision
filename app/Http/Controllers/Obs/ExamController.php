@@ -24,7 +24,7 @@ class ExamController extends Controller
             ->orderBy('id', 'desc')
             ->paginate(10);
 
-        return view('exams.index', compact('exams', 'search'));
+        return view('obs.exams.index', compact('exams', 'search'));
     }
 
     // Yeni Sınav Formu
@@ -34,7 +34,7 @@ class ExamController extends Controller
         $teachers = Teacher::orderBy('name')->get();
         $courses = Course::orderBy('course_name')->get();
 
-        return view('exams.create', compact(
+        return view('obs.exams.create', compact(
             'departments',
             'teachers',
             'courses'
@@ -64,7 +64,7 @@ class ExamController extends Controller
         ]);
 
         return redirect()
-            ->route('exams.index')
+            ->route('obs.exams.index')
             ->with('success', 'Sınav başarıyla oluşturuldu.');
     }
 
@@ -77,7 +77,7 @@ class ExamController extends Controller
         $teachers = Teacher::orderBy('name')->get();
         $courses = Course::orderBy('course_name')->get();
 
-        return view('exams.edit', compact(
+        return view('obs.exams.edit', compact(
             'exam',
             'departments',
             'teachers',
@@ -102,7 +102,7 @@ class ExamController extends Controller
         $exam->update($request->all());
 
         return redirect()
-            ->route('exams.index')
+            ->route('obs.exams.index')
             ->with('success', 'Sınav güncellendi.');
     }
 
@@ -114,7 +114,7 @@ class ExamController extends Controller
         $exam->delete();
 
         return redirect()
-            ->route('exams.index')
+            ->route('obs.exams.index')
             ->with('success', 'Sınav silindi.');
     }
 
@@ -122,7 +122,7 @@ class ExamController extends Controller
 {
     $exam = Exam::findOrFail($id);
 
-    return view('exams.answerkey', compact('exam'));
+   return view('obs.exams.answerkey', compact('exam'));
 }
 
 // Cevap Anahtarını Kaydet
@@ -143,7 +143,7 @@ public function saveAnswerKey(Request $request, $id)
     $exam->save();
 
     return redirect()
-            ->route('exams.index')
+            ->route('obs.exams.index')
             ->with('success','Cevap anahtarı kaydedildi.');
 }
 

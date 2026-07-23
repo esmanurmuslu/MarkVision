@@ -22,14 +22,9 @@ class TeacherController extends Controller
         ->orderBy('name')
         ->paginate(10);
 
-        return view('teachers.index', compact('teachers', 'search'));
+        return view('obs.teachers.index', compact('teachers', 'search'));
     }
 
-    // Ekleme Formu
-    public function create()
-    {
-        return view('teachers.create');
-    }
 
     // Kaydet
     public function store(Request $request)
@@ -50,7 +45,7 @@ class TeacherController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        return redirect()->route('teachers.index')
+        return redirect()->route('obs.teachers.index')
             ->with('success', 'Öğretmen başarıyla eklendi.');
     }
 
@@ -59,7 +54,7 @@ class TeacherController extends Controller
     {
         $teacher = Teacher::findOrFail($id);
 
-        return view('teachers.edit', compact('teacher'));
+        return view('obs.teachers.edit', compact('teacher'));
     }
 
     // Güncelle
@@ -81,7 +76,7 @@ class TeacherController extends Controller
             'email' => $request->email,
         ]);
 
-        return redirect()->route('teachers.index')
+        return redirect()->route('obs.teachers.index')
             ->with('success', 'Öğretmen güncellendi.');
     }
 
@@ -90,7 +85,7 @@ class TeacherController extends Controller
     {
         Teacher::findOrFail($id)->delete();
 
-        return redirect()->route('teachers.index')
+        return redirect()->route('obs.teachers.index')
             ->with('success', 'Öğretmen silindi.');
     }
 }

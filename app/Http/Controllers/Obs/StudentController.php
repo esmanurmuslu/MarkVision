@@ -23,7 +23,7 @@ class StudentController extends Controller
             ->orderBy('student_no')
             ->paginate(10);
 
-        return view('students.index', compact('students', 'search'));
+        return view('obs.students.index', compact('students', 'search'));
     }
 
     // Öğrenci Ekleme Formu
@@ -31,7 +31,7 @@ class StudentController extends Controller
     {
         $departments = Department::orderBy('department_name')->get();
 
-        return view('students.create', compact('departments'));
+        return view('obs.students.create', compact('departments'));
     }
 
     // Öğrenci Kaydet
@@ -46,7 +46,7 @@ class StudentController extends Controller
 
         Student::create($request->all());
 
-        return redirect()->route('students.index')
+        return redirect()->route('obs.students.index')
             ->with('success', 'Öğrenci başarıyla eklendi.');
     }
 
@@ -56,7 +56,7 @@ class StudentController extends Controller
         $student = Student::findOrFail($student_no);
         $departments = Department::orderBy('department_name')->get();
 
-        return view('students.edit', compact('student', 'departments'));
+        return view('obs.students.edit', compact('student', 'departments'));
     }
 
     // Güncelle
@@ -72,7 +72,7 @@ class StudentController extends Controller
 
         $student->update($request->all());
 
-        return redirect()->route('students.index')
+        return redirect()->route('obs.students.index')
             ->with('success', 'Öğrenci başarıyla güncellendi.');
     }
 
@@ -83,7 +83,7 @@ class StudentController extends Controller
 
         $student->delete();
 
-        return redirect()->route('students.index')
+        return redirect()->route('obs.students.index')
             ->with('success', 'Öğrenci başarıyla silindi.');
     }
 }

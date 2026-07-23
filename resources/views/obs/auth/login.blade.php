@@ -51,7 +51,7 @@
 
             @endif
 
-            <form method="POST" action="{{ route('login.post') }}">
+            <form method="POST" action="{{ route('obs.login.post') }}">
 
                 @csrf
 
