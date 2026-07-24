@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Obs;
 
 use App\Http\Controllers\Controller;
-use App\Models\Student;
-use App\Models\ExamResult;
+use App\Models\Obs\Student;
+use App\Models\Obs\ExamResult;
 use Illuminate\Http\Request;
-use App\Models\Exam;
+use App\Models\Obs\Exam;
 
 class ObsController extends Controller
 {

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Obs;
 
 use App\Http\Controllers\Controller;
-use App\Models\Student;
-use App\Models\Teacher;
-use App\Models\Department;
-use App\Models\Course;
-use App\Models\Exam;
-use App\Models\ExamResult;
+use App\Models\Obs\Student;
+use App\Models\Obs\Teacher;
+use App\Models\Obs\Department;
+use App\Models\Obs\Course;
+use App\Models\Obs\Exam;
+use App\Models\Obs\ExamResult;
 
 class DashboardController extends Controller
 {

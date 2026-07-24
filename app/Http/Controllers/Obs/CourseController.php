@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Obs;
 
 use App\Http\Controllers\Controller;
-use App\Models\Course;
-use App\Models\Department;
+use App\Models\Obs\Course;
+use App\Models\Obs\Department;
 use Illuminate\Http\Request;
 
 class CourseController extends Controller

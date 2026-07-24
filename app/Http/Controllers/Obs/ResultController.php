@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Obs;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\ExamResult;
+use App\Models\Obs\ExamResult;
 
 class ResultController extends Controller
 {
@@ -29,7 +29,7 @@ class ResultController extends Controller
 
 public function show($id)
 {
-    $result = \App\Models\ExamResult::with(['student', 'exam'])->findOrFail($id);
+    $result = ExamResult::with(['student', 'exam'])->findOrFail($id);
 
     return view('obs.results.show', compact('result'));
 }
@@ -42,8 +42,7 @@ public function export()
         ob_end_clean();
     }
 
-    $results = \App\Models\ExamResult::with(['student', 'exam'])->get();
-
+    $results = ExamResult::with(['student', 'exam'])->get();
     $fileName = 'sonuclar_' . date('Y-m-d_H-i-s') . '.csv';
 
     $headers = [
