@@ -14,42 +14,47 @@ use App\Http\Controllers\Obs\CourseController;
 use App\Http\Controllers\Obs\ExamController;
 use App\Http\Controllers\Obs\ResultController;
 
+
 /*
 |--------------------------------------------------------------------------
 | MARKVISION PANEL
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', [MarkVisionController::class, 'index'])->name('panel.index');
+Route::get('/', [MarkVisionController::class, 'index'])
+    ->name('panel.index');
 
 Route::post('/ajax-login', [MarkVisionController::class, 'login'])
     ->name('panel.login');
 
-// Optik okuma
+
 Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut'])
     ->name('panel.okut');
 
-// Geçmiş sonuçlar
+
 Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])
     ->name('panel.gecmis');
 
-// Cevap anahtarı
+
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey'])
     ->name('panel.cevapkaydet');
+
 
 Route::get('/cevap-anahtari-getir', [MarkVisionController::class, 'getLatestAnswerKey'])
     ->name('panel.cevapgetir');
 
-// Kayıt
+
 Route::get('/register', [MarkVisionController::class, 'showRegister'])
     ->name('register');
+
 
 Route::post('/register', [MarkVisionController::class, 'registerStore'])
     ->name('register.store');
 
-// Şifre değiştir
+
 Route::post('/panel/sifre-degistir', [MarkVisionController::class, 'sifreDegistir'])
     ->name('panel.sifredegistir');
+
 
 
 /*
@@ -62,75 +67,132 @@ Route::prefix('obs')
     ->name('obs.')
     ->group(function () {
 
+
         /*
         |--------------------------------------------------------------------------
-        | Giriş
+        | Login
         |--------------------------------------------------------------------------
         */
 
         Route::get('/login', [AuthController::class, 'showLogin'])
             ->name('login');
 
+
         Route::post('/login', [AuthController::class, 'login'])
             ->name('login.post');
 
+
+
         /*
         |--------------------------------------------------------------------------
-        | Login gerekli alanlar
+        | Auth gerekli
         |--------------------------------------------------------------------------
         */
 
         Route::middleware('check.login')->group(function () {
 
+
             // Dashboard
+
             Route::get('/', [DashboardController::class, 'index'])
                 ->name('dashboard');
 
-            // Çıkış
+
+
+            // Logout
+
             Route::post('/logout', [AuthController::class, 'logout'])
                 ->name('logout');
 
+
+
             // Öğrenci
+
             Route::resource('students', StudentController::class);
 
+
+
             // Öğretmen
+
             Route::resource('teachers', TeacherController::class)
-                ->except(['create', 'store']);
+                ->except(['create','store']);
+
+
 
             // Bölüm
+
             Route::resource('departments', DepartmentController::class);
 
+
+
             // Ders
+
             Route::resource('courses', CourseController::class);
 
+
+
             // Sınav
+
             Route::resource('exams', ExamController::class);
 
-            // Sonuçlar
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Sonuçlar
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/results', [ResultController::class, 'index'])
                 ->name('results.index');
 
-            Route::get('/results/{result}', [ResultController::class, 'show'])
-                ->name('results.show');
+
+            // EXPORT MUTLAKA ÖNCE
 
             Route::get('/results/export', [ResultController::class, 'export'])
                 ->name('results.export');
 
-            // Tarama
+
+            Route::get('/results/{result}', [ResultController::class, 'show'])
+                ->name('results.show');
+
+
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Optik Tarama
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/tarama', [ObsController::class, 'index'])
                 ->name('tarama');
+
 
             Route::get('/pending', [ObsController::class, 'pendingReviews'])
                 ->name('pending');
 
+
             Route::post('/api/optical-scan', [ObsController::class, 'storeOpticalScan'])
                 ->name('scan');
 
-            // Cevap anahtarı
-            Route::get('/exams/{exam}/answer-key', [ExamController::class, 'answerKey'])
-                ->name('exams.answerkey');
 
-            Route::post('/exams/{exam}/answer-key', [ExamController::class, 'saveAnswerKey'])
-                ->name('exams.answerkey.save');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Cevap Anahtarı
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get('/exams/{exam}/answer-key',
+                [ExamController::class, 'answerKey']
+            )->name('exams.answerkey');
+
+
+            Route::post('/exams/{exam}/answer-key',
+                [ExamController::class, 'saveAnswerKey']
+            )->name('exams.answerkey.save');
+
         });
+
     });

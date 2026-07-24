@@ -1,45 +1,17 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Models;
 
-use App\Models\ExamResult;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\Model;
 
-class ProcessExamImageJob implements ShouldQueue
+class ExamResult extends Model
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    protected $table = 'exam_results';
 
-    protected $examId;
-    protected $imagePath;
-
-    public function __construct($examId, $imagePath)
-    {
-        $this->examId = $examId;
-        $this->imagePath = $imagePath;
-    }
-
-    public function handle(): void
-    {
-        $scriptPath = base_path('omr_scripts/pipeline_main.py');
-        $command = escapeshellcmd("python " . escapeshellarg($scriptPath) . " " . escapeshellarg($this->imagePath));
-        $output = shell_exec($command);
-
-        $data = json_decode($output, true);
-
-        if ($data && isset($data['student_no']) && isset($data['score'])) {
-            ExamResult::create([
-                'exam_id'    => $this->examId,
-                'student_no' => $data['student_no'],
-                'score'      => $data['score'],
-            ]);
-            Log::info("Sınav sonucu kaydedildi: " . $this->examId);
-        } else {
-            Log::error("Python çıktısı hatalı: " . $output);
-        }
-    }
+    protected $fillable = [
+        'exam_id',
+        'student_no',
+        'score',
+        'status'
+    ];
 }
