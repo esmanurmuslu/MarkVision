@@ -12,7 +12,15 @@ class ExamResult extends Model
         'exam_id',
         'student_no',
         'score',
-        'status'
+        'status',
+        'correct_count',
+        'wrong_count',
+        'blank_count',
+        'student_answers',
+    ];
+
+    protected $casts = [
+        'student_answers' => 'array',
     ];
 
     public function student()

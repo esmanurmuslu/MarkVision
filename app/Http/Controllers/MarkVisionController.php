@@ -11,6 +11,9 @@ use Illuminate\Support\Str;
 use App\Models\User;
 use App\Models\Sinav;
 use App\Models\OgrenciSonuc;
+use App\Models\Obs\Exam as ObsExam;
+use App\Models\Obs\Student as ObsStudent;
+use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
@@ -52,34 +55,31 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
     public function sifreDegistir(Request $request)
-   {
-    $request->validate([
-        'eski_sifre' => 'required',
-        'yeni_sifre' => 'required|min:6',
-    ]);
+    {
+        $request->validate([
+            'eski_sifre' => 'required',
+            'yeni_sifre' => 'required|min:6',
+        ]);
 
-    $user = auth()->user(); // veya oturumdaki öğretmen
+        $user = auth()->user();
 
-    if (!Hash::check($request->eski_sifre, $user->password)) {
-        return response()->json(['success' => false, 'message' => 'Mevcut şifre yanlış.']);
+        if (!Hash::check($request->eski_sifre, $user->password)) {
+            return response()->json(['success' => false, 'message' => 'Mevcut şifre yanlış.']);
+        }
+
+        $user->password = Hash::make($request->yeni_sifre);
+        $user->save();
+
+        return response()->json(['success' => true]);
     }
 
-    $user->password = Hash::make($request->yeni_sifre);
-    $user->save();
-
-    return response()->json(['success' => true]);
-    }
     public function showRegister()
     {
         return view('auth.register');
     }
 
-    // --- YENİ: KAYIT OL FORMUNU İŞLE ---
-    // NOT: Gönderdiğin form verisine bakarak 'teachers' tablosunda
-    // name, surname, email, tc_no, password kolonları olduğunu
-    // varsaydım. Gerçek migration'ında kolon adları farklıysa
-    // (örn. tc_no yerine tc_kimlik_no gibi) bana söyle, düzeltelim.
     public function registerStore(Request $request)
     {
         try {
@@ -104,7 +104,6 @@ class MarkVisionController extends Controller
                 'updated_at' => now(),
             ]);
 
-            // Kayıt olur olmaz otomatik giriş yaptırıyoruz.
             $teacher = DB::table('teachers')->find($teacherId);
             $userModel = User::find($teacher->id);
             if (!$userModel) {
@@ -130,10 +129,11 @@ class MarkVisionController extends Controller
     {
         try {
             $request->validate([
-                'exam_name' => 'required|string|max:255',
-                'ders_kodu' => 'nullable|string|max:50',
-                'answers'   => 'required|array|min:1',
-                'answers.*' => 'required|string|in:A,B,C,D,E',
+                'exam_name'   => 'required|string|max:255',
+                'ders_kodu'   => 'nullable|string|max:50',
+                'obs_exam_id' => 'nullable|integer|exists:exams,id',
+                'answers'     => 'required|array|min:1',
+                'answers.*'   => 'required|string|in:A,B,C,D,E',
             ]);
 
             $dersKodu = trim((string) $request->input('ders_kodu'));
@@ -151,6 +151,7 @@ class MarkVisionController extends Controller
                 'sinav_adi'      => $request->input('exam_name'),
                 'ders_kodu'      => $dersKodu,
                 'cevap_anahtari' => $request->input('answers'),
+                'obs_exam_id'    => $request->input('obs_exam_id'),
             ]);
 
             $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
@@ -190,6 +191,31 @@ class MarkVisionController extends Controller
                 'exam_name' => $sinav->sinav_adi,
                 'ders_kodu' => $sinav->ders_kodu,
                 'answers'   => $sinav->cevap_anahtari,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function obsSinavlariGetir(Request $request)
+    {
+        try {
+            $sinavlar = ObsExam::with('teacher')
+                ->orderBy('id', 'desc')
+                ->get(['id', 'teacher_id', 'course_name', 'exam_type', 'total_questions'])
+                ->map(function ($sinav) {
+                    return [
+                        'id'              => $sinav->id,
+                        'course_name'     => $sinav->course_name,
+                        'exam_type'       => $sinav->exam_type,
+                        'total_questions' => $sinav->total_questions,
+                        'teacher_name'    => $sinav->teacher->name ?? null,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data'    => $sinavlar,
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -281,7 +307,7 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
-            OgrenciSonuc::create([
+            $ogrenciSonuc = OgrenciSonuc::create([
                 'sinav_id'          => $sinav->id,
                 'ogrenci_no'        => $sonuc['student_no'] ?? null,
                 'ogrenci_ad_soyad'  => null,
@@ -294,13 +320,15 @@ class MarkVisionController extends Controller
             ]);
 
             return response()->json([
-                'success'    => true,
-                'ogrenci_no' => $sonuc['student_no'] ?? 'Okunamadı',
-                'dogru'      => $sonuc['correct_count'] ?? 0,
-                'yanlis'     => $sonuc['wrong_count'] ?? 0,
-                'bos'        => $sonuc['blank_count'] ?? 0,
-                'puan'       => number_format($sonuc['score'] ?? 0, 2),
-                'status'     => $sonuc['status'] ?? 'success',
+                'success'          => true,
+                'ogrenci_sonuc_id' => $ogrenciSonuc->id,
+                'ogrenci_no'       => $sonuc['student_no'] ?? 'Okunamadı',
+                'dogru'            => $sonuc['correct_count'] ?? 0,
+                'yanlis'           => $sonuc['wrong_count'] ?? 0,
+                'bos'              => $sonuc['blank_count'] ?? 0,
+                'puan'             => number_format($sonuc['score'] ?? 0, 2),
+                'status'           => $sonuc['status'] ?? 'success',
+                'obs_hazir'        => (bool) $sinav->obs_exam_id,
             ]);
 
         } catch (\Throwable $e) {
@@ -311,24 +339,96 @@ class MarkVisionController extends Controller
     public function gecmisSonuclar()
     {
         try {
-            $sinavAdlari = Sinav::pluck('sinav_adi', 'id');
+            $sinavlar = Sinav::all()->keyBy('id');
 
             $sonuclar = OgrenciSonuc::orderBy('id', 'desc')
                 ->get()
-                ->map(function ($s) use ($sinavAdlari) {
+                ->map(function ($s) use ($sinavlar) {
+                    $sinav = $sinavlar[$s->sinav_id] ?? null;
+
                     return [
-                        'id'            => $s->id,
-                        'exam_name'     => $sinavAdlari[$s->sinav_id] ?? 'Genel Optik Sınav',
-                        'ogrenci_no'    => $s->ogrenci_no,
-                        'correct_count' => $s->dogru_sayisi,
-                        'wrong_count'   => $s->yanlis_sayisi,
-                        'empty_count'   => $s->bos_sayisi,
-                        'total_score'   => $s->toplam_puan,
-                        'created_at'    => $s->created_at,
+                        'id'               => $s->id,
+                        'exam_name'        => $sinav->sinav_adi ?? 'Genel Optik Sınav',
+                        'ogrenci_no'       => $s->ogrenci_no,
+                        'correct_count'    => $s->dogru_sayisi,
+                        'wrong_count'      => $s->yanlis_sayisi,
+                        'empty_count'      => $s->bos_sayisi,
+                        'total_score'      => $s->toplam_puan,
+                        'created_at'       => $s->created_at,
+                        'obs_kayit_edildi' => (bool) $s->obs_kayit_edildi,
+                        'obs_hazir'        => (bool) ($sinav->obs_exam_id ?? false),
                     ];
                 });
 
             return response()->json(['success' => true, 'data' => $sonuclar]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // YENİ: Taranan sonucu OBS'ye (exam_results tablosuna) kaydeder
+    public function obsKaydet(Request $request)
+    {
+        try {
+            $request->validate([
+                'ogrenci_sonuc_id' => 'required|integer',
+            ]);
+
+            $ogrenciSonuc = OgrenciSonuc::find($request->ogrenci_sonuc_id);
+
+            if (!$ogrenciSonuc) {
+                return response()->json(['success' => false, 'message' => 'Sonuç bulunamadı.'], 404);
+            }
+
+            if ($ogrenciSonuc->obs_kayit_edildi) {
+                return response()->json(['success' => false, 'message' => 'Bu sonuç zaten OBS\'ye kaydedilmiş.'], 422);
+            }
+
+            $sinav = Sinav::find($ogrenciSonuc->sinav_id);
+
+            if (!$sinav || !$sinav->obs_exam_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu sınav için OBS eşleştirmesi yapılmamış. Lütfen "Cevap Anahtarı" ekranından bu sınavı OBS sınavıyla eşleştirin.',
+                ], 422);
+            }
+
+            if (!$ogrenciSonuc->ogrenci_no) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Öğrenci numarası okunamadığı için OBS\'ye kaydedilemiyor.',
+                ], 422);
+            }
+
+            $obsOgrenci = ObsStudent::find($ogrenciSonuc->ogrenci_no);
+
+            if (!$obsOgrenci) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Öğrenci numarası "' . $ogrenciSonuc->ogrenci_no . '" OBS\'de kayıtlı değil.',
+                ], 422);
+            }
+
+                $examResult = ObsExamResult::create([
+                'exam_id'          => $sinav->obs_exam_id,
+                'student_no'       => $ogrenciSonuc->ogrenci_no,
+                'score'            => $ogrenciSonuc->toplam_puan,
+                'correct_count'    => $ogrenciSonuc->dogru_sayisi,
+                'wrong_count'      => $ogrenciSonuc->yanlis_sayisi,
+                'blank_count'      => $ogrenciSonuc->bos_sayisi,
+                'student_answers'  => $ogrenciSonuc->ogrenci_cevaplari,
+            ]);
+        
+
+            $ogrenciSonuc->obs_exam_result_id = $examResult->id;
+            $ogrenciSonuc->obs_kayit_edildi = true;
+            $ogrenciSonuc->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sonuç OBS\'ye başarıyla kaydedildi.',
+            ]);
+
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }

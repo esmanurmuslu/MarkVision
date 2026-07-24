@@ -20,9 +20,6 @@
             #mobil-alt-menu:not(.hidden) { display: flex !important; }
         }
 
-        /* ============ Mobil Alt Menü (4 sekme) ============ */
-        /* Varsayılan olarak HER ZAMAN gizli: giriş ekranındayken görünmemeli.
-           Sadece main-dashboard açıldığında JS ile "hidden" sınıfı kaldırılır. */
         #mobil-alt-menu {
             display: none;
             position: fixed;
@@ -69,13 +66,6 @@
             background: #dbeafe;
         }
 
-        /* Orijinal buzlu cam görünümü geri getirildi (backdrop-blur-xl).
-           Önceki ekran görüntülerinde köşede %25-%33 gibi kesirli zoom
-           seviyeleri görünüyordu — kartın "çoğalmış" görünmesinin sebebi
-           büyük ihtimalle budur, blur değil. isolation/contain hâlâ
-           GPU compositing'i stabilize etmeye yardımcı olur, blur'u
-           kaldırmadan bırakıyoruz. Tarayıcı zoom'unu %100'e getirmek
-           (Ctrl+0) bu görüntü sorununu çözer. */
         #login-screen {
             isolation: isolate;
             contain: layout paint style;
@@ -95,7 +85,6 @@
         }
         @keyframes tarama { 0% { top: 0%; } 50% { top: 100%; } 100% { top: 0%; } }
 
-        /* Cevap Anahtarı radio satırları */
         .soru-satiri { display: grid; grid-template-columns: 40px repeat(5, 1fr); align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; }
         .soru-satiri:nth-child(odd) { background: #f8fafc; }
         .secenek-etiket { display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; color: #64748b; cursor: pointer; }
@@ -162,7 +151,6 @@
             <div id="section-okuma" class="grid grid-cols-3 gap-6">
                 <div class="col-span-2 space-y-6">
 
-                    {{-- Cevap anahtarı yoksa gösterilen uyarı --}}
                     <div id="uyariCevapYok" class="hidden flex items-start justify-between gap-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-xs">
                         <div>
                             <p class="font-bold">⚠ Önce bir cevap anahtarı oluşturmalısınız</p>
@@ -228,6 +216,14 @@
                         </div>
                     </div>
 
+                    {{-- YENİ: OBS Sınavı eşleştirme --}}
+                    <div>
+                        <label class="text-[11px] font-semibold text-slate-500 uppercase">OBS Sınavı <span class="normal-case text-slate-400">(opsiyonel — seçersen sonuçlar OBS'ye kaydedilebilir)</span></label>
+                        <select id="cevap_obs_exam_id" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                            <option value="">— OBS sınavı seçilmedi —</option>
+                        </select>
+                    </div>
+
                     <div>
                         <label class="text-[11px] font-semibold text-slate-500 uppercase">Soru Sayısı</label>
                         <div class="flex gap-2 mt-1 max-w-xs">
@@ -270,6 +266,7 @@
                                 <th class="p-4">Doğru / Yanlış / Boş</th>
                                 <th class="p-4">Toplam Skor</th>
                                 <th class="p-4">Tarih</th>
+                                <th class="p-4">OBS</th>
                             </tr>
                         </thead>
                         <tbody id="gecmis-tablo-body" class="text-xs text-slate-600"></tbody>
@@ -280,7 +277,6 @@
             {{-- ============ ÖĞRETMEN (mobil + web ortak) ============ --}}
             <div id="section-ogretmen" class="hidden max-w-xl mx-auto space-y-6">
 
-                {{-- Profil kartı --}}
                 <div class="bg-white rounded-2xl border border-slate-200 p-8">
                     <div class="flex flex-col items-center text-center">
                         <div id="sayfa-ogretmen-avatar" class="w-20 h-20 rounded-full mb-4 bg-gradient-to-br from-blue-700 to-slate-900 text-white text-2xl font-extrabold flex items-center justify-center shadow-md">?</div>
@@ -290,7 +286,6 @@
                     </div>
                 </div>
 
-                {{-- Şifre değiştir --}}
                 <div class="bg-white rounded-2xl border border-slate-200 p-8">
                     <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">🔒 Şifre Değiştir</h3>
                     <p class="text-xs text-slate-400 mt-1 mb-5">Hesap güvenliğiniz için şifrenizi güncelleyebilirsiniz.</p>
@@ -320,7 +315,6 @@
         </main>
     </div>
 
-    {{-- ============ MOBİL ALT MENÜ (4 sekme) — sadece giriş yapıldıktan sonra görünür ============ --}}
     <div id="mobil-alt-menu" class="hidden">
         <div class="mobil-nav-grid">
             <button id="mobil-nav-okut" class="mobil-nav-btn mobil-aktif">
@@ -364,11 +358,10 @@
             const data = await response.json();
             if (data.success) {
                 loginScreen.classList.add('hidden'); mainDashboard.classList.remove('hidden');
-                mobilAltMenu.classList.remove('hidden'); // mobil menü sadece giriş sonrası görünür
+                mobilAltMenu.classList.remove('hidden');
                 mainBody.className = "bg-slate-100 min-h-screen text-slate-800 p-6 flex items-start justify-center";
                 document.getElementById('user-display-name').textContent = data.user.ad;
 
-                // ---- Öğretmen sayfasını (mobil + web) doldur ----
                 girisYapanEmail = emailDeger;
                 document.getElementById('sayfa-ogretmen-ad').textContent = data.user.ad;
                 document.getElementById('sayfa-ogretmen-email').textContent = girisYapanEmail;
@@ -383,7 +376,6 @@
             }
         });
 
-        // ---- Menü / Sekme geçişleri (masaüstü) ----
         const menuOkut = document.getElementById('menu-okut');
         const menuCevap = document.getElementById('menu-cevap');
         const menuGecmis = document.getElementById('menu-gecmis');
@@ -393,7 +385,6 @@
         const secGecmis = document.getElementById('section-gecmis');
         const secOgretmen = document.getElementById('section-ogretmen');
 
-        // ---- Mobil alt menü düğmeleri ----
         const mobilOkut = document.getElementById('mobil-nav-okut');
         const mobilCevap = document.getElementById('mobil-nav-cevap');
         const mobilGecmis = document.getElementById('mobil-nav-gecmis');
@@ -431,6 +422,7 @@
             if (document.getElementById('sorular-konteyner').children.length === 0) {
                 sorulariOlustur();
             }
+            obsSinavlariniYukle();
         });
 
         menuGecmis.addEventListener('click', async () => {
@@ -446,6 +438,15 @@
 
             if (veriler.success && veriler.data.length > 0) {
                 veriler.data.forEach(item => {
+                    let obsHucre;
+                    if (item.obs_kayit_edildi) {
+                        obsHucre = `<span class="text-emerald-600 font-semibold">✓ Kaydedildi</span>`;
+                    } else if (item.obs_hazir) {
+                        obsHucre = `<button class="btn-obs-gecmis-kaydet bg-blue-600 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg cursor-pointer" data-id="${item.id}">OBS'ye Kaydet</button>`;
+                    } else {
+                        obsHucre = `<span class="text-slate-300">Eşleştirme yok</span>`;
+                    }
+
                     tbody.innerHTML += `
                         <tr class="border-b border-slate-100 hover:bg-slate-50">
                             <td class="p-4 font-bold">#${item.id}</td>
@@ -453,12 +454,33 @@
                             <td class="p-4"><span class="text-emerald-600 font-semibold">${item.correct_count}D</span> / <span class="text-rose-600 font-semibold">${item.wrong_count}Y</span> / <span class="text-slate-400">${item.empty_count}B</span></td>
                             <td class="p-4 font-bold text-blue-600">${item.total_score} Puan</td>
                             <td class="p-4 text-slate-400">${new Date(item.created_at).toLocaleString('tr-TR')}</td>
+                            <td class="p-4">${obsHucre}</td>
                         </tr>`;
                 });
             } else if (veriler.success) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">Henüz kayıtlı optik tarama sonucu bulunamadı.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-400">Henüz kayıtlı optik tarama sonucu bulunamadı.</td></tr>`;
             } else {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500">Sonuçlar yüklenemedi: ${veriler.message ?? 'Bilinmeyen hata'}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-rose-500">Sonuçlar yüklenemedi: ${veriler.message ?? 'Bilinmeyen hata'}</td></tr>`;
+            }
+        });
+
+        // ---- Geçmiş Sonuçlar tablosundaki "OBS'ye Kaydet" butonları (event delegation) ----
+        document.getElementById('gecmis-tablo-body').addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-obs-gecmis-kaydet');
+            if (!btn) return;
+
+            const ogrenciSonucId = btn.dataset.id;
+            btn.disabled = true;
+            btn.textContent = "Kaydediliyor...";
+
+            const sonuc = await obsKaydetIstegiGonder(ogrenciSonucId);
+
+            if (sonuc.success) {
+                btn.outerHTML = `<span class="text-emerald-600 font-semibold">✓ Kaydedildi</span>`;
+            } else {
+                btn.disabled = false;
+                btn.textContent = "OBS'ye Kaydet";
+                alert("OBS'ye kaydedilemedi: " + sonuc.message);
             }
         });
 
@@ -473,7 +495,6 @@
             menuCevap.click();
         });
 
-        // ---- Mobil alt menü tıklamaları, masaüstü mantığını tetikler ----
         mobilOkut.addEventListener('click', () => menuOkut.click());
         mobilCevap.addEventListener('click', () => menuCevap.click());
         mobilGecmis.addEventListener('click', () => menuGecmis.click());
@@ -485,7 +506,6 @@
             }
         });
 
-        // ---- ÖĞRETMEN: Şifre Değiştir ----
         function sifreMesajGoster(basarili, metin) {
             const el = document.getElementById('sifre-mesaj');
             el.textContent = metin;
@@ -544,7 +564,6 @@
             }
         });
 
-        // ---- CEVAP ANAHTARI: soruları dinamik oluştur ----
         const sorularKonteyner = document.getElementById('sorular-konteyner');
         const cevapMesaj = document.getElementById('cevap-mesaj');
 
@@ -585,9 +604,43 @@
             }
         }
 
+        // ============================================================
+        // YENİ: OBS sınav listesini açılır kutuya doldur
+        // ============================================================
+        let obsSinavlariYuklendi = false;
+
+        async function obsSinavlariniYukle() {
+            if (obsSinavlariYuklendi) return;
+
+            const select = document.getElementById('cevap_obs_exam_id');
+
+            try {
+                const res = await fetch("{{ route('panel.obssinavlari') }}");
+                const veri = await res.json();
+
+                if (veri.success && veri.data.length > 0) {
+                   veri.data.forEach(sinav => {
+                        const opt = document.createElement('option');
+                        opt.value = sinav.id;
+                        opt.textContent = `${sinav.course_name ?? 'Ders'} — ${sinav.exam_type ?? 'Sınav'} (${sinav.total_questions} soru)`;
+                        select.appendChild(opt);
+                    });
+                    obsSinavlariYuklendi = true;
+                } else if (veri.success) {
+                    const opt = document.createElement('option');
+                    opt.value = "";
+                    opt.textContent = "OBS'de kayıtlı sınavınız bulunamadı";
+                    opt.disabled = true;
+                }
+            } catch (err) {
+                // sessizce geç, alan opsiyonel
+            }
+        }
+
         document.getElementById('btnCevapKaydet').addEventListener('click', async () => {
             const sinavAdi = document.getElementById('cevap_sinav_adi').value.trim();
             const dersKodu = document.getElementById('cevap_ders_kodu').value.trim();
+            const obsExamId = document.getElementById('cevap_obs_exam_id').value;
 
             if (!sinavAdi) {
                 cevapMesajGoster(false, "Lütfen sınav adını girin.");
@@ -629,7 +682,12 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': '{{ csrf_token() }}'
                     },
-                    body: JSON.stringify({ exam_name: sinavAdi, ders_kodu: dersKodu, answers: answers })
+                    body: JSON.stringify({
+                        exam_name: sinavAdi,
+                        ders_kodu: dersKodu,
+                        obs_exam_id: obsExamId || null,
+                        answers: answers
+                    })
                 });
                 const veri = await res.json();
 
@@ -637,12 +695,11 @@
                     cevapMesajGoster(true, "✓ Cevap anahtarı kaydedildi. Optik okuma artık bu anahtara göre yapılacak.");
                     cevapAnahtariVarMi = true;
                     guncelleOkumaDurumu();
-                    
-                    // EKLENEN KISIM: Otomatik olarak Optik Okut sekmesine geç
+
                     setTimeout(() => {
                         document.getElementById('menu-okut').click();
-                    }, 800); // Kullanıcı mesajı görsün diye yarım saniyelik minik bir gecikme ekledik
-                    
+                    }, 800);
+
                 } else {
                 }
             } catch (err) {
@@ -653,9 +710,6 @@
             }
         });
 
-        // ============================================================
-        // Cevap anahtarı var mı yok mu kontrolü
-        // ============================================================
         let cevapAnahtariVarMi = false;
 
         async function cevapAnahtariKontrolEt() {
@@ -681,7 +735,6 @@
             }
         }
 
-        // ---- OPTİK OKUT bölümü ----
         const fileInput = document.getElementById('optik_dosya');
         const previewImg = document.getElementById('onizleme-gorsel');
         const video = document.getElementById('webcam');
@@ -708,6 +761,25 @@
             document.getElementById('alanKamera').classList.add('hidden');
             if(stream) { stream.getTracks().forEach(t => t.stop()); }
         });
+
+        // ============================================================
+        // YENİ: OBS'ye kaydet isteğini gönderen ortak fonksiyon
+        // ============================================================
+        async function obsKaydetIstegiGonder(ogrenciSonucId) {
+            try {
+                const res = await fetch("{{ route('panel.obskaydet') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({ ogrenci_sonuc_id: ogrenciSonucId })
+                });
+                return await res.json();
+            } catch (err) {
+                return { success: false, message: err.message };
+            }
+        }
 
         document.getElementById('btnFormuOkut').addEventListener('click', async () => {
             if (!cevapAnahtariVarMi) {
@@ -753,7 +825,33 @@
                     </div>
                     <div class="pt-3 border-t border-white/10 flex justify-between items-center">
                         <span class="text-xs text-slate-400">Sınav Notu:</span><span class="text-2xl font-black text-amber-400">${veri.puan}</span>
-                    </div>`;
+                    </div>
+                    <button id="btnObsKaydet" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs cursor-pointer transition mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        📤 OBS'ye Kaydet
+                    </button>`;
+
+                const btnObsKaydet = document.getElementById('btnObsKaydet');
+
+                if (!veri.obs_hazir) {
+                    btnObsKaydet.disabled = true;
+                    btnObsKaydet.textContent = "OBS eşleştirmesi yok";
+                } else {
+                    btnObsKaydet.addEventListener('click', async () => {
+                        btnObsKaydet.disabled = true;
+                        btnObsKaydet.textContent = "Kaydediliyor...";
+
+                        const sonuc = await obsKaydetIstegiGonder(veri.ogrenci_sonuc_id);
+
+                        if (sonuc.success) {
+                            btnObsKaydet.textContent = "✓ OBS'ye Kaydedildi";
+                            btnObsKaydet.className = "w-full bg-slate-600 text-white font-bold py-2.5 rounded-xl text-xs mt-2 cursor-not-allowed";
+                        } else {
+                            btnObsKaydet.disabled = false;
+                            btnObsKaydet.textContent = "📤 OBS'ye Kaydet";
+                            alert("OBS'ye kaydedilemedi: " + sonuc.message);
+                        }
+                    });
+                }
             } else {
                 alert("Okuma hatası: " + veri.message);
             }
