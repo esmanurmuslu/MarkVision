@@ -216,7 +216,6 @@
                         </div>
                     </div>
 
-                    {{-- YENİ: OBS Sınavı eşleştirme --}}
                     <div>
                         <label class="text-[11px] font-semibold text-slate-500 uppercase">OBS Sınavı <span class="normal-case text-slate-400">(opsiyonel — seçersen sonuçlar OBS'ye kaydedilebilir)</span></label>
                         <select id="cevap_obs_exam_id" class="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm">
@@ -274,9 +273,8 @@
                 </div>
             </div>
 
-            {{-- ============ ÖĞRETMEN (mobil + web ortak) ============ --}}
+            {{-- ============ ÖĞRETMEN ============ --}}
             <div id="section-ogretmen" class="hidden max-w-xl mx-auto space-y-6">
-
                 <div class="bg-white rounded-2xl border border-slate-200 p-8">
                     <div class="flex flex-col items-center text-center">
                         <div id="sayfa-ogretmen-avatar" class="w-20 h-20 rounded-full mb-4 bg-gradient-to-br from-blue-700 to-slate-900 text-white text-2xl font-extrabold flex items-center justify-center shadow-md">?</div>
@@ -464,7 +462,6 @@
             }
         });
 
-        // ---- Geçmiş Sonuçlar tablosundaki "OBS'ye Kaydet" butonları (event delegation) ----
         document.getElementById('gecmis-tablo-body').addEventListener('click', async (e) => {
             const btn = e.target.closest('.btn-obs-gecmis-kaydet');
             if (!btn) return;
@@ -604,9 +601,6 @@
             }
         }
 
-        // ============================================================
-        // YENİ: OBS sınav listesini açılır kutuya doldur
-        // ============================================================
         let obsSinavlariYuklendi = false;
 
         async function obsSinavlariniYukle() {
@@ -633,7 +627,7 @@
                     opt.disabled = true;
                 }
             } catch (err) {
-                // sessizce geç, alan opsiyonel
+                // sessizce geç
             }
         }
 
@@ -701,6 +695,7 @@
                     }, 800);
 
                 } else {
+                    cevapMesajGoster(false, veri.message || "Kayıt başarısız.");
                 }
             } catch (err) {
                 cevapMesajGoster(false, "Sunucuya bağlanılamadı: " + err.message);
@@ -762,9 +757,6 @@
             if(stream) { stream.getTracks().forEach(t => t.stop()); }
         });
 
-        // ============================================================
-        // YENİ: OBS'ye kaydet isteğini gönderen ortak fonksiyon
-        // ============================================================
         async function obsKaydetIstegiGonder(ogrenciSonucId) {
             try {
                 const res = await fetch("{{ route('panel.obskaydet') }}", {
@@ -833,9 +825,6 @@
                 const btnObsKaydet = document.getElementById('btnObsKaydet');
 
                 if (!veri.obs_hazir) {
-                    btnObsKaydet.disabled = true;
-                    btnObsKaydet.textContent = "OBS eşleştirmesi yok";
-                } else {
                     btnObsKaydet.addEventListener('click', async () => {
                         btnObsKaydet.disabled = true;
                         btnObsKaydet.textContent = "Kaydediliyor...";
