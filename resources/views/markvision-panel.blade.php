@@ -772,15 +772,25 @@
             document.getElementById('alanKamera').classList.remove('hidden');
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        height: { ideal: 1440 },
-        focusMode: "continuous"
-    }
-});
-video.srcObject = stream;
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1600 },
+                        height: { ideal: 1200 }
+                    }
+                });
+                video.srcObject = stream;
                 kameraAktif = true;
+
+                // Sürekli otomatik odaklama (destekleniyorsa) - 'advanced' altında
+                // vermek 'focusMode'u doğrudan video constraint'i olarak vermekten
+                // daha geniş tarayıcı desteğine sahip.
+                const track = stream.getVideoTracks()[0];
+                if (typeof track.getCapabilities === 'function') {
+                    const capabilities = track.getCapabilities();
+                    if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+                        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+                    }
+                }
             }
             catch (err) { alert("Kamera donanımına erişilemedi: " + err.message); }
         });
@@ -827,9 +837,14 @@ video.srcObject = stream;
             const kameraAlaniAcik = !document.getElementById('alanKamera').classList.contains('hidden');
 
             // KAMERA MODU: aktif videodan bir kare yakalayıp JPEG olarak ekle
+            // NOT: ImageCapture.takePhoto() denendi ama bu WebView'de güvenilmez
+            // çıktı (butona basıldığı andan çekim anına kadar beklenenden uzun
+            // sürüp yanlış/eski bir kareyi yakalayabiliyor) - canvas yöntemine
+            // geri dönüldü, bu öngörülebilir şekilde "şu an ekranda ne varsa
+            // onu" yakalıyor.
             if (kameraAlaniAcik && stream) {
-                btnOkut.textContent = "Kamera odaklanıyor...";
-                await new Promise(resolve => setTimeout(resolve, 700)); // odaklanma icin kisa bekleme
+                btnOkut.textContent = "Kamera odaklanıyor, sabit tutun...";
+                await new Promise(resolve => setTimeout(resolve, 900)); // odaklanma icin bekleme
 
                 const canvas = document.getElementById('webcam-canvas');
                 canvas.width = video.videoWidth;
@@ -837,7 +852,7 @@ video.srcObject = stream;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
                 formData.append('image', blob, 'kamera_capture.jpg');
                 formData.append('kaynak', 'kamera');
             }

@@ -114,7 +114,7 @@ def sorulari_oku(img_gri, harita, toplam_soru):
                 soru_tuple[k] = tuple(v)  # [x,y] -> (x,y)
         sorular_tuple.append(soru_tuple)
 
-    return coklu_soru_oku(img_gri, sorular_tuple)
+    return coklu_soru_oku(img_gri, sorular_tuple, bagil_yedek=True)
 
 
 def puanla(cevaplar, answer_key):

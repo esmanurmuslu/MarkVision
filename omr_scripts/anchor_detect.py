@@ -381,17 +381,6 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
     duz_renkli = cv2.warpPerspective(img, matris, (cikti_genislik, cikti_yukseklik))
     duz_gri = cv2.cvtColor(duz_renkli, cv2.COLOR_BGR2GRAY)
 
-    # --- SENİN TEST KODLARIN BURAYA GELECEK ---
-    cv2.imwrite('log_1_orijinal.jpg', duz_renkli)
-    cv2.imwrite('log_2_gri.jpg', duz_gri)
-    
-    blurred = cv2.GaussianBlur(duz_gri, (5, 5), 0)
-    cv2.imwrite('log_3_blur.jpg', blurred)
-    
-    thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2)
-    cv2.imwrite('log_4_threshold.jpg', thresh)
-    # ------------------------------------------
-
     return duz_gri, duz_renkli
 
 
