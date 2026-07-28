@@ -91,6 +91,27 @@
         .secenek-etiket input { accent-color: #2563eb; width: 15px; height: 15px; cursor: pointer; }
     </style>
 </head>
+<script>
+    // 1. Fetch ile atılan tüm isteklere Ngrok izni ekler
+    const originalFetch = window.fetch;
+    window.fetch = async function() {
+        let [resource, config] = arguments;
+        if (!config) config = {};
+        if (!config.headers) config.headers = {};
+        config.headers['ngrok-skip-browser-warning'] = 'true';
+        return await originalFetch(resource, config);
+    };
+
+    // 2. Axios veya jQuery ile atılan isteklere Ngrok izni ekler
+    document.addEventListener("DOMContentLoaded", function() {
+        if (window.axios) {
+            window.axios.defaults.headers.common['ngrok-skip-browser-warning'] = 'true';
+        }
+        if (window.jQuery || window.$) {
+            $.ajaxSetup({ headers: { 'ngrok-skip-browser-warning': 'true' } });
+        }
+    });
+</script>
 <body id="main-body" class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 min-h-screen text-slate-100 antialiased font-sans flex items-center justify-center p-4 transition-all duration-500">
 
     <div id="login-screen" class="w-full max-w-md bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 shadow-2xl p-8 transition-all duration-300">
@@ -177,11 +198,12 @@
                             </div>
 
                             <div id="alanKamera" class="hidden w-full flex flex-col items-center">
-                                <video id="webcam" autoplay playsinline class="w-full max-h-60 bg-black rounded-lg object-cover"></video>
+                                <video id="webcam" autoplay playsinline muted class="w-full max-h-[420px] bg-black rounded-lg object-contain"></video>
+                                <canvas id="webcam-canvas" class="hidden"></canvas>
                             </div>
                         </div>
 
-                        <button id="btnFormuOkut" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Formu Hizala ve Okut</button>
+                       <button id="btnFormuOkut" style="position: relative; z-index: 9999; touch-action: manipulation;" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl text-sm cursor-pointer hover:bg-blue-500 transition disabled:opacity-40 disabled:cursor-not-allowed" disabled>Formu Hizala ve Okut</button>
                     </div>
                 </div>
 
@@ -734,6 +756,7 @@
         const previewImg = document.getElementById('onizleme-gorsel');
         const video = document.getElementById('webcam');
         let stream = null;
+        let kameraAktif = false;
 
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -747,14 +770,26 @@
         document.getElementById('btnYontemKamera').addEventListener('click', async () => {
             document.getElementById('alanDosya').classList.add('hidden');
             document.getElementById('alanKamera').classList.remove('hidden');
-            try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }); video.srcObject = stream; }
-            catch (err) { alert("Kamera donanımına erişilemedi."); }
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1440 },
+        focusMode: "continuous"
+    }
+});
+video.srcObject = stream;
+                kameraAktif = true;
+            }
+            catch (err) { alert("Kamera donanımına erişilemedi: " + err.message); }
         });
 
         document.getElementById('btnYontemDosya').addEventListener('click', () => {
             document.getElementById('alanDosya').classList.remove('hidden');
             document.getElementById('alanKamera').classList.add('hidden');
             if(stream) { stream.getTracks().forEach(t => t.stop()); }
+            kameraAktif = false;
         });
 
         async function obsKaydetIstegiGonder(ogrenciSonucId) {
@@ -779,28 +814,68 @@
                 return;
             }
 
+            const btnOkut = document.getElementById('btnFormuOkut');
+            // Eğer buton zaten kilitliyse (arka arkaya basıldıysa) işlemi durdur
+            if (btnOkut.disabled) return; 
+
+            // Tıklanır tıklanmaz butonu anında kilitle ve yazıyı değiştir
+            btnOkut.disabled = true;
+            btnOkut.textContent = "Fotoğraf Çekiliyor, Sabit Tutun...";
+
+            const formData = new FormData();
+            const fileInput = document.getElementById('optik_dosya');
+            const kameraAlaniAcik = !document.getElementById('alanKamera').classList.contains('hidden');
+
+            // KAMERA MODU: aktif videodan bir kare yakalayıp JPEG olarak ekle
+            if (kameraAlaniAcik && stream) {
+                btnOkut.textContent = "Kamera odaklanıyor...";
+                await new Promise(resolve => setTimeout(resolve, 700)); // odaklanma icin kisa bekleme
+
+                const canvas = document.getElementById('webcam-canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
+                formData.append('image', blob, 'kamera_capture.jpg');
+                formData.append('kaynak', 'kamera');
+            }
+            // DOSYA MODU: seçili dosyayı ekle
+            else if (fileInput.files.length > 0) {
+                formData.append('image', fileInput.files[0]);
+            }
+
+            if (!formData.has('image')) {
+                alert("Lütfen bir dosya yükleyin veya kamerayı açıp bir form gösterin.");
+                btnOkut.disabled = false;
+                btnOkut.textContent = "Formu Hizala ve Okut";
+                return;
+            }
+
             lazer.style.display = 'block';
             document.getElementById('btnFormuOkut').disabled = true;
             document.getElementById('btnFormuOkut').textContent = "4 Köşe Hizalanıyor, Taranıyor...";
 
-            const formData = new FormData();
-            const fileInput = document.getElementById('optik_dosya');
-
-            if(fileInput.files.length > 0) {
-                formData.append('image', fileInput.files[0]);
+            let veri;
+            try {
+                const res = await fetch("{{ route('panel.okut') }}", {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: formData
+                });
+                veri = await res.json();
+            } catch (err) {
+                lazer.style.display = 'none';
+                document.getElementById('btnFormuOkut').disabled = false;
+                document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
+                alert("Sunucuya bağlanılamadı: " + err.message);
+                return;
             }
-
-            const res = await fetch("{{ route('panel.okut') }}", {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: formData
-            });
 
             lazer.style.display = 'none';
             document.getElementById('btnFormuOkut').disabled = false;
             document.getElementById('btnFormuOkut').textContent = "Formu Hizala ve Okut";
-
-            const veri = await res.json();
 
             if (veri.success) {
                 const anlikSonuc = document.getElementById('anlikSonucAlani');
@@ -824,23 +899,28 @@
 
                 const btnObsKaydet = document.getElementById('btnObsKaydet');
 
-                if (!veri.obs_hazir) {
-                    btnObsKaydet.addEventListener('click', async () => {
-                        btnObsKaydet.disabled = true;
-                        btnObsKaydet.textContent = "Kaydediliyor...";
+                btnObsKaydet.addEventListener('click', async () => {
+                    if (!veri.obs_hazir) {
+                        alert("Bu sınav bir OBS sınavıyla eşleştirilmemiş. Önce 'Cevap Anahtarı' ekranından bu sınavı OBS sınavıyla eşleştirmelisiniz.");
+                        return;
+                    }
 
-                        const sonuc = await obsKaydetIstegiGonder(veri.ogrenci_sonuc_id);
+                    btnObsKaydet.disabled = true;
+                    btnObsKaydet.textContent = "Kaydediliyor...";
 
-                        if (sonuc.success) {
-                            btnObsKaydet.textContent = "✓ OBS'ye Kaydedildi";
-                            btnObsKaydet.className = "w-full bg-slate-600 text-white font-bold py-2.5 rounded-xl text-xs mt-2 cursor-not-allowed";
-                        } else {
-                            btnObsKaydet.disabled = false;
-                            btnObsKaydet.textContent = "📤 OBS'ye Kaydet";
-                            alert("OBS'ye kaydedilemedi: " + sonuc.message);
-                        }
-                    });
-                }
+                    const sonuc = await obsKaydetIstegiGonder(veri.ogrenci_sonuc_id);
+
+                    if (sonuc.success) {
+                        btnObsKaydet.textContent = "✓ OBS'ye Kaydedildi";
+                        btnObsKaydet.className = "w-full bg-slate-600 text-white font-bold py-2.5 rounded-xl text-xs mt-2 cursor-not-allowed";
+                    } else {
+                        btnObsKaydet.disabled = false;
+                        btnObsKaydet.textContent = "📤 OBS'ye Kaydet";
+                        alert("OBS'ye kaydedilemedi: " + sonuc.message);
+                    }
+                });
+                    
+                
             } else {
                 alert("Okuma hatası: " + veri.message);
             }

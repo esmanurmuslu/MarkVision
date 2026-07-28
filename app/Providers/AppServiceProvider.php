@@ -14,8 +14,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+       if (request()->header('X-Forwarded-Proto') === 'https' || str_contains(request()->getHost(), 'ngrok')) {
+    \Illuminate\Support\Facades\URL::forceScheme('https');
+}
+
         // Eski MySQL sürümleri için varsayılan string uzunluğunu sınırlar
         Schema::defaultStringLength(191);
-        Schema::defaultStringLength(191); // YENİ EKLENEN SATIR (2)
     }
 }
