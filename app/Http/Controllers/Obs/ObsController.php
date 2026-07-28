@@ -17,16 +17,15 @@ class ObsController extends Controller
         return view('obs.index', compact('students'));
     }
 
-    // Numarası okunamayan ve onay bekleyen (pending_review) formlar
-    public function pendingReviews()
-    {
-        $pendingResults = ExamResult::where('status', 'pending_review')
-                                    ->whereNull('student_no')
-                                    ->get();
+   // Numarası okunamayan ve onay bekleyen (pending_review) formlar
+public function pendingReviews()
+{
+    $pendingResults = ExamResult::with(['student', 'exam'])
+        ->where('status', 'pending_review')
+        ->get();
 
-        return view('obs.pending', compact('pendingResults'));
-    }
-
+    return view('obs.pending', compact('pendingResults'));
+}
     // Optik okuyucudan gelen veriyi veritabanına kaydeden API fonksiyonu
     public function storeOpticalScan(Request $request)
 {

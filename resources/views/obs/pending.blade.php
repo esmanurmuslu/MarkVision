@@ -1,210 +1,126 @@
-<!DOCTYPE html>
-<html lang="tr">
+@extends('obs.layouts.app')
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+@section('title','Onay Bekleyen Formlar')
 
-    <title>EduScan - İnceleme Bekleyen Formlar</title>
+@section('content')
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<div class="container">
 
-    <style>
-        body {
-            background: #f8fafc;
-        }
+    @if(session('success'))
+        <div class="alert alert-success">
+            {{ session('success') }}
+        </div>
+    @endif
 
-        .card {
-            border-radius: 15px;
-        }
+    <div class="d-flex justify-content-between align-items-center mb-4">
 
-        code {
-            word-break: break-all;
-        }
-    </style>
-
-</head>
-
-
-<body>
-
-
-<div class="container mt-5">
-
-
-    <div class="mb-4">
-
-
-        <a href="{{ route('obs.tarama') }}"
-           class="btn btn-sm btn-outline-secondary">
-
-            ← Öğrenci Listesine Dön
-
-        </a>
-
-
-        <h2 class="mt-3 text-warning">
-
-            Onay ve İnceleme Bekleyen Optik Sonuçlar
-
+        <h2 class="text-warning">
+            Onay Bekleyen Formlar
         </h2>
 
+        <a href="{{ route('obs.dashboard') }}" class="btn btn-secondary">
+            Geri Dön
+        </a>
 
     </div>
 
-
-
     @if($pendingResults->isEmpty())
 
-
-        <div class="alert alert-success shadow-sm">
-
-            Şu anda kontrol edilmesi gereken hatalı veya numarasız form bulunmuyor.
-
+        <div class="alert alert-success">
+            Onay bekleyen herhangi bir form bulunmuyor.
         </div>
-
-
 
     @else
 
+        <div class="table-responsive">
 
+            <table class="table table-bordered table-hover">
 
-        <div class="row">
+                <thead class="table-dark">
 
+                    <tr>
+                        <th>Öğrenci No</th>
+                        <th>Öğrenci</th>
+                        <th>Sınav</th>
+                        <th>Puan</th>
+                        <th>Durum</th>
+                        <th width="220">İşlem</th>
+                    </tr>
 
-            @foreach($pendingResults as $result)
+                </thead>
 
+                <tbody>
 
+                @foreach($pendingResults as $result)
 
-                <div class="col-md-6 mb-4">
+                    <tr>
 
+                        <td>{{ $result->student_no ?? '-' }}</td>
 
-                    <div class="card shadow-sm border-warning">
+                        <td>
+                            @if($result->student)
+                                {{ $result->student->student_name }}
+                                {{ $result->student->student_surname }}
+                            @else
+                                <span class="text-danger">
+                                    Öğrenci Bulunamadı
+                                </span>
+                            @endif
+                        </td>
 
+                        <td>
+                            {{ $result->exam->exam_type ?? '-' }}
+                        </td>
 
-                        <div class="card-body">
+                        <td>
+                            {{ number_format($result->score,2) }}
+                        </td>
 
+                        <td>
+                            <span class="badge bg-warning text-dark">
+                                Onay Bekliyor
+                            </span>
+                        </td>
 
-                            <h5 class="card-title text-danger">
+                        <td>
 
-                                ⚠ Öğrenci Numarası Okunamadı!
+                            <div class="d-flex gap-2">
 
-                            </h5>
+                                <a href="{{ route('obs.results.show',$result->id) }}"
+                                   class="btn btn-info btn-sm">
+                                    <i class="bi bi-eye"></i>
+                                    İncele
+                                </a>
 
+                                <form action="{{ route('obs.results.approve',$result->id) }}"
+                                      method="POST">
 
+                                    @csrf
 
-                            <p class="mb-1">
+                                    <button type="submit"
+                                            class="btn btn-success btn-sm">
+                                        <i class="bi bi-check-circle"></i>
+                                        Onay Ver
+                                    </button>
 
-                                <strong>Sınav ID:</strong>
-
-                                {{ $result->exam_id }}
-
-                            </p>
-
-
-
-                            <p>
-
-                                <strong>Görsel Yolu:</strong>
-
-                                <br>
-
-                                <code>
-
-                                    {{ $result->optical_image_url }}
-
-                                </code>
-
-                            </p>
-
-
-
-
-                            <h6>
-
-                                Okunan Cevap Dizilimi (JSON):
-
-                            </h6>
-
-
-
-
-                            <div class="bg-dark text-white p-3 rounded mb-3">
-
-
-                                <small>
-
-
-                                    @if(is_array($result->student_answers))
-
-
-                                        @foreach($result->student_answers as $soru => $cevap)
-
-
-                                            Soru {{ $soru }}:
-
-                                            {{ $cevap }}
-
-                                            <br>
-
-
-                                        @endforeach
-
-
-                                    @else
-
-
-                                        {{ $result->student_answers }}
-
-
-                                    @endif
-
-
-                                </small>
-
+                                </form>
 
                             </div>
 
+                        </td>
 
+                    </tr>
 
+                @endforeach
 
-                            <button class="btn btn-primary w-100">
+                </tbody>
 
-                                Görseli İncele & Öğrenciyi Elle Seç
-
-                            </button>
-
-
-
-                        </div>
-
-
-                    </div>
-
-
-                </div>
-
-
-
-            @endforeach
-
-
+            </table>
 
         </div>
 
-
-
     @endif
-
-
 
 </div>
 
-
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-
-</body>
-
-</html>
+@endsection

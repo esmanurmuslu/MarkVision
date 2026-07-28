@@ -9,97 +9,103 @@ use App\Models\Obs\ExamResult;
 class ResultController extends Controller
 {
     public function index(Request $request)
-{
-    $search = $request->search;
+    {
+        $search = $request->search;
 
-    $results = ExamResult::with(['student','exam'])
+        $results = ExamResult::with(['student', 'exam'])
+            ->when($search, function ($query) use ($search) {
+                $query->where('student_no', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(15);
 
-        ->when($search, function ($query) use ($search) {
-
-            $query->where('student_no','like',"%{$search}%");
-
-        })
-
-        ->latest()
-
-        ->paginate(15);
-
-    return view('obs.results.index', compact('results','search'));
-}
-
-public function show($id)
-{
-    $result = ExamResult::with(['student', 'exam'])->findOrFail($id);
-
-    return view('obs.results.show', compact('result'));
-}
-
-public function export()
-{
-
-// Çıktı tamponunu temizle ki öncesinde gelen boşluklar dosyayı bozmasın
-    if (ob_get_level()) {
-        ob_end_clean();
+        return view('obs.results.index', compact('results', 'search'));
     }
 
-    $results = ExamResult::with(['student', 'exam'])->get();
-    $fileName = 'sonuclar_' . date('Y-m-d_H-i-s') . '.csv';
+    public function show($id)
+    {
+        $result = ExamResult::with(['student', 'exam'])->findOrFail($id);
 
-    $headers = [
-        'Content-Type' => 'text/csv; charset=UTF-8',
-        'Content-Disposition' => "attachment; filename=$fileName",
-    ];
+        return view('obs.results.show', compact('result'));
+    }
 
-    $callback = function () use ($results) {
+    // YENİ EKLENEN METOT
+    public function approve(ExamResult $result)
+    {
+        $result->update([
+            'status' => 'success'
+        ]);
 
-        $file = fopen('php://output', 'w');
+        return redirect()
+            ->route('obs.pending')
+            ->with('success', 'Form başarıyla onaylandı.');
+    }
 
-        // Türkçe karakterler için
-        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-
-        fputcsv($file, [
-            'Öğrenci No',
-            'Ad Soyad',
-            'Ders',
-            'Sınav',
-            'Doğru',
-            'Yanlış',
-            'Boş',
-            'Puan',
-            'Durum'
-        ], ';');
-
-        foreach ($results as $result) {
-
-            fputcsv($file, [
-
-                $result->student_no,
-
-                $result->student
-                    ? $result->student->student_name.' '.$result->student->student_surname
-                    : 'Bulunamadı',
-
-                $result->exam->course_name ?? '-',
-
-                $result->exam->exam_type ?? '-',
-
-                $result->correct_count,
-
-                $result->wrong_count,
-
-                $result->blank_count,
-
-                $result->score,
-
-                $result->status
-
-            ], ';');
+    public function export()
+    {
+        // Çıktı tamponunu temizle
+        if (ob_get_level()) {
+            ob_end_clean();
         }
 
-        fclose($file);
-    };
+        $results = ExamResult::with(['student', 'exam'])->get();
 
-    return response()->stream($callback, 200, $headers);
-}
+        $fileName = 'sonuclar_' . date('Y-m-d_H-i-s') . '.csv';
 
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=$fileName",
+        ];
+
+        $callback = function () use ($results) {
+
+            $file = fopen('php://output', 'w');
+
+            // UTF-8 BOM
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+            fputcsv($file, [
+                'Öğrenci No',
+                'Ad Soyad',
+                'Ders',
+                'Sınav',
+                'Doğru',
+                'Yanlış',
+                'Boş',
+                'Puan',
+                'Durum'
+            ], ';');
+
+            foreach ($results as $result) {
+
+                fputcsv($file, [
+
+                    $result->student_no,
+
+                    $result->student
+                        ? $result->student->student_name . ' ' . $result->student->student_surname
+                        : 'Bulunamadı',
+
+                    $result->exam->course_name ?? '-',
+
+                    $result->exam->exam_type ?? '-',
+
+                    $result->correct_count,
+
+                    $result->wrong_count,
+
+                    $result->blank_count,
+
+                    $result->score,
+
+                    $result->status
+
+                ], ';');
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
 }
