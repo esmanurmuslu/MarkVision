@@ -4,6 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\MarkVisionController;
 
+// Bu rotanın ekli olduğundan emin ol:
+Route::get('/obs-sinavlari', [MarkVisionController::class, 'obsSinavlariGetir']);
+
 use App\Http\Controllers\Obs\AuthController;
 use App\Http\Controllers\Obs\ObsController;
 use App\Http\Controllers\Obs\DashboardController;

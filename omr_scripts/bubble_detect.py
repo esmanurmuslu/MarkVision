@@ -88,7 +88,7 @@ def soruyu_oku(img_gri, secenek_merkezleri, esik=0.45, yaricap=12,
     return doldurulmus[0]
 
 
-def rakami_oku(img_gri, rakam_merkezleri, esik=0.45, yaricap=10, bagil_yedek=False):
+def rakami_oku(img_gri, rakam_merkezleri, esik=0.45, yaricap=15, bagil_yedek=False):
     """
     Ogrenci No / T.C. Kimlik No gibi alanlarda TEK BIR SUTUN icin kullanilir.
     rakam_merkezleri: {"0": (x,y), "1": (x,y), ..., "9": (x,y)}

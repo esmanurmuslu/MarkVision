@@ -39,7 +39,7 @@ import io
 import contextlib
 
 from anchor_detect import belgeyi_duzlestir, kenar_koyuluk_orani
-from bubble_detect import soruyu_oku, coklu_soru_oku
+from bubble_detect import soruyu_oku, coklu_soru_oku, kabarcik_doluluk_orani
 
 # Sinav puanlamasinda yanlislarin dogrulari goturup goturmeyecegini
 # belirleyen katsayi. Universitenizin puanlama politikasina gore
@@ -48,6 +48,33 @@ from bubble_detect import soruyu_oku, coklu_soru_oku
 #   1/4    -> 4 secenekli klasik "4 yanlis 1 dogruyu goturur" kurali
 #   1/(N-1)-> N secenekli sinavlarda istatistiksel olarak "adil" ceza
 CEZA_KATSAYISI = 0
+
+
+def _akilli_rakam_sec(img_gri, secenekler, yaricap=9, min_fark=0.05, min_taban=0.30):
+    """
+    Ogrenci no kutucuklari icin MUTLAK esik yerine GORELI guven kullanir.
+
+    Neden: kucuk yaricapli (8-9px) kirpimda, ISARETLENMEMIS bos bir
+    kutucugun basili halka cizgisi bile (per-bolge Otsu esiklemesi
+    yuzunden) yanlislikla "dolu" sayilabiliyor -- ozellikle gercek
+    kamera fotograflarinda (tarama/ekran goruntusune gore daha
+    gurultulu). Bu yuzden mutlak "esik=0.45" yerine:
+      1) En yuksek dolulugu bul.
+      2) Bu, ikinci en yuksekten YETERINCE ayrisiyor mu kontrol et.
+      3) Ayrisim yoksa ya da hicbiri yeterince dolu degilse '?' don
+         (boylece cagiran kod bunu 'pending_review' olarak isaretler --
+         yanlis bir rakami sessizce kaydetmek yerine).
+    """
+    oranlar = {h: kabarcik_doluluk_orani(img_gri, m, yaricap) for h, m in secenekler.items()}
+    siralanan = sorted(oranlar.items(), key=lambda kv: -kv[1])
+    en_iyi_harf, en_iyi_oran = siralanan[0]
+    ikinci_oran = siralanan[1][1] if len(siralanan) > 1 else 0.0
+
+    if en_iyi_oran < min_taban:
+        return "?"
+    if (en_iyi_oran - ikinci_oran) < min_fark:
+        return "?"
+    return en_iyi_harf
 
 
 def ogrenci_no_oku(img_gri, harita):
@@ -64,11 +91,7 @@ def ogrenci_no_oku(img_gri, harita):
     ):
         secenekler = harita["ogrenci_no"][basamak_adi]
         secenekler = {k: tuple(v) for k, v in secenekler.items()}
-        rakam = soruyu_oku(img_gri, secenekler, esik=0.45, yaricap=8)
-        if rakam in ("BOS", "GECERSIZ"):
-            no += "?"
-        else:
-            no += rakam
+        no += _akilli_rakam_sec(img_gri, secenekler, yaricap=9)
     return no
 
 
