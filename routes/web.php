@@ -36,6 +36,11 @@ Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut'])
 Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])
     ->name('panel.gecmis');
 
+// --- YENİ EKLENEN EXCEL ROTASI ---
+Route::get('/gecmis-sonuclar/export', [MarkVisionController::class, 'exportExcel'])
+    ->name('panel.export');
+// ---------------------------------
+
 // Cevap anahtarı
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey'])
     ->name('panel.cevapkaydet');

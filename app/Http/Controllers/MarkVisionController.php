@@ -1,6 +1,8 @@
 <?php
 
 namespace App\Http\Controllers;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\ResultsExport;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -472,4 +474,8 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+    public function exportExcel()
+{
+    return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
+}
 }

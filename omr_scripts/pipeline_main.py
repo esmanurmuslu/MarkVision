@@ -117,47 +117,58 @@ def sorulari_oku(img_gri, harita, toplam_soru):
     return coklu_soru_oku(img_gri, sorular_tuple, bagil_yedek=True)
 
 
-def puanla(cevaplar, answer_key):
+def puanla(cevaplar, answer_key, question_weights=None):
     """
     cevaplar: {soru_no: verilen_harf, ...}         (soru_no int)
     answer_key: {"1": "A", "2": "B", ...}           (exams.answer_key ile ayni format)
-
-    Donus, exam_results sutunlariyla birebir eslesen alanlar +
-    veritabaninda sutunu olmayan ama teachers'in "hangi sorular
-    cift isaretlenmis" gorebilmesi icin faydali bir liste icerir.
+    question_weights: {"1": 1.0, "2": 2.5, ...}     (her sorunun puani/agirligi)
     """
     dogru = yanlis = bos = 0
     gecersiz_sorular = []
+    
+    toplam_agirlikli_puan = 0.0
+    alinan_agirlikli_puan = 0.0
+
+    if question_weights is None:
+        question_weights = {}
 
     for soru_no, verilen in cevaplar.items():
-        gercek = answer_key.get(str(soru_no))
+        soru_no_str = str(soru_no)
+        gercek = answer_key.get(soru_no_str)
+        
+        # Eğer soruya özel bir ağırlık verilmemişse varsayılan olarak 1.0 kabul et
+        agirlik = float(question_weights.get(soru_no_str, 1.0))
+        toplam_agirlikli_puan += agirlik
+
         if verilen == "BOS":
             bos += 1
         elif verilen == "GECERSIZ":
-            # DB'de ayri bir "gecersiz_count" sutunu yok; puanlama
-            # acisindan yanlis sayilir (dogruyu goturmez ama net'e
-            # +1 vermez), ama hangi sorularin sorunlu oldugu ayrica
-            # raporlanir ki ogretmen isterse elle kontrol etsin.
             yanlis += 1
             gecersiz_sorular.append(soru_no)
         elif verilen == gercek:
             dogru += 1
+            alinan_agirlikli_puan += agirlik
         else:
             yanlis += 1
+            # Yanlış doğruyu götürüyorsa (ceza katsayısı), ceza da ağırlık üzerinden hesaplanır
+            alinan_agirlikli_puan -= (agirlik * CEZA_KATSAYISI)
 
-    net = dogru - (yanlis * CEZA_KATSAYISI)
-    net = max(net, 0)
-    toplam_soru = len(cevaplar)
-    puan = round((net / toplam_soru) * 100, 2) if toplam_soru > 0 else 0.0
+    # Puan eksiye düşmesin
+    alinan_agirlikli_puan = max(alinan_agirlikli_puan, 0.0)
+    
+    # 100 üzerinden orantıla
+    if toplam_agirlikli_puan > 0:
+        score = round((alinan_agirlikli_puan / toplam_agirlikli_puan) * 100, 2)
+    else:
+        score = 0.0
 
     return {
         "correct_count": dogru,
         "wrong_count": yanlis,
         "blank_count": bos,
-        "score": puan,
-        "gecersiz_sorular": gecersiz_sorular,  # DB sutunu degil, bilgi amacli
+        "score": score,
+        "gecersiz_sorular": gecersiz_sorular,
     }
-
 
 def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
     with open(koordinat_dosyasi, encoding="utf-8") as f:
