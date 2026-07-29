@@ -98,7 +98,13 @@ def _esikle(img_gri, mod="sabit"):
     return th
 
 
-def _kare_mi(kontur, min_alan=50, max_alan=5000000, min_doluluk=0.40):
+def _kare_mi(kontur, min_alan=50, max_alan=None, min_doluluk=0.40):
+    """
+    max_alan None ise, cagiran kod (_anchor_adaylarini_bul) resmin
+    boyutuna gore dinamik bir ust sinir hesaplar (bkz. asagida).
+    """
+    if max_alan is None:
+        max_alan = 5000000
     """
     Bir konturun 'dolu siyah kare' olup olmadigini kontrol eder.
     Dijital resimler icin sinirlar maksimum seviyede esnetilmistir.
@@ -147,17 +153,24 @@ def _anchor_adaylarini_bul(img_gri, mod="sabit"):
     if mod == "adaptif":
         img_gri = _kose_bolgesi_maskele(img_gri)
 
+    h, w = img_gri.shape[:2]
+    # ONEMLI GUVENLIK SINIRI: gercek anchor kareler kagidin kucuk bir
+    # kosesidir, asla goruntunun buyuk bir kismini kaplamaz. Arka planda
+    # kalan siyah nesneler (klavye, kiyafet, letterbox/siyah serit vb.)
+    # bazen gercek anchor'lardan cok daha buyuk siyah konturlar
+    # olusturup yanlislikla "anchor" sanilabiliyor. Bunu onlemek icin
+    # ust siniri goruntu alaninin sadece %2'siyle sinirliyoruz --
+    # gercek anchor kareler bunun cok altinda kalir, arka plan
+    # gurultusu ise cogunlukla bunun cok ustunde olur.
+    dinamik_max_alan = h * w * 0.02
+
     th = _esikle(img_gri, mod=mod)
     konturlar, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    # Adaptif modda govde metninden kalan kucuk gurultuyu elemek icin
-    # kare kriterleri sikilastiriliyor (gercek anchor'lar neredeyse
-    # tam kare ve iyi dolu olur; sabit modda bu sikilik gerekmiyordu
-    # cunku esik zaten cok az kontur birakiyordu).
     if mod == "adaptif":
-        kare_kriterleri = dict(min_alan=150, max_alan=20000, min_doluluk=0.55)
+        kare_kriterleri = dict(min_alan=150, max_alan=min(20000, dinamik_max_alan), min_doluluk=0.55)
     else:
-        kare_kriterleri = dict()
+        kare_kriterleri = dict(max_alan=dinamik_max_alan)
 
     adaylar = []
     for k in konturlar:

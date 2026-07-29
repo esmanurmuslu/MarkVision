@@ -17,7 +17,7 @@ use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
-    private string $pythonPath = 'python';
+   private string $pythonPath = 'python';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 

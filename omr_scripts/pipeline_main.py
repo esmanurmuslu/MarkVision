@@ -169,14 +169,60 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
     toplam_soru = sinav["total_questions"]
     answer_key = sinav["answer_key"]
 
-    img_gri, img_renkli = belgeyi_duzlestir(resim_yolu)
+    # belgeyi_duzlestir() basarisiz oldugunda GERCEK sebebi (bulanik mi,
+    # anchor mu bulunamadi, dosya mi bozuk) stderr'e yaziyor ama bu bilgi
+    # normalde kayboluyor ve mobile hep ayni jenerik mesaj gidiyordu. Simdi
+    # stderr'i yakalayip hata mesajina ekliyoruz ki gercek sebep gorulebilsin.
+    stderr_yakalayici = io.StringIO()
+    with contextlib.redirect_stderr(stderr_yakalayici):
+        img_gri, img_renkli = belgeyi_duzlestir(resim_yolu)
     if img_gri is None:
+        gercek_sebep = stderr_yakalayici.getvalue().strip()
         return {
             "basarili": False,
             "status": "failed",
             "exam_id": exam_id,
-            "hata": "Kagit duzlestirilemedi (anchor bulunamadi).",
+            "hata": "Kagit duzlestirilemedi (anchor bulunamadi)."
+                    + (f" Detay: {gercek_sebep}" if gercek_sebep else ""),
         }
+
+    ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
+    cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
+
+    # --- OTOMATİK KOORDİNAT HARİTASI FALLBACK ---
+    # Kaynak parametresi (kamera/mobil/dosya) hangi görüntünün hangi
+    # kalibrasyona ihtiyacı olduğunu HER ZAMAN doğru tahmin edemiyor --
+    # bazen "Dosya Yükle" ile gerçek bir telefon fotoğrafı, bazen de
+    # temiz/dijital bir görsel yüklenebiliyor, ve bu ikisi farklı
+    # koordinat haritalarıyla doğru okunuyor. Bu yuzden: verilen harita
+    # ile ogrenci numarasi okunamazsa (bir/daha fazla '?' iceriyorsa),
+    # klasordeki DIGER bilinen haritayla sessizce tekrar deniyoruz ve
+    # hangisi net bir numara veriyorsa onu kullaniyoruz.
+    if "?" in ogrenci_no_str:
+        harita_klasoru = os.path.dirname(os.path.abspath(koordinat_dosyasi))
+        mevcut_ad = os.path.basename(koordinat_dosyasi)
+        bilinen_haritalar = ["koordinat_haritasi.json", "koordinat_kamera.json"]
+        alternatif_adlar = [ad for ad in bilinen_haritalar if ad != mevcut_ad]
+
+        for alternatif_ad in alternatif_adlar:
+            alternatif_yol = os.path.join(harita_klasoru, alternatif_ad)
+            if not os.path.exists(alternatif_yol):
+                continue
+            try:
+                with open(alternatif_yol, encoding="utf-8") as f:
+                    alt_harita = json.load(f)
+            except Exception:
+                continue
+
+            alt_ogrenci_no_str = ogrenci_no_oku(img_gri, alt_harita)
+            if "?" not in alt_ogrenci_no_str:
+                # Alternatif harita numarayı net okudu -- bunu kullan
+                # (cevaplari da AYNI haritayla yeniden oku ki tutarli olsun).
+                harita = alt_harita
+                ogrenci_no_str = alt_ogrenci_no_str
+                cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
+                break
+    # --- FALLBACK BİTİŞ ---
 
     # --- DEBUG: ALGORİTMANIN GÖZÜNDEN ÇİZİM ---
     try:
@@ -200,9 +246,6 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
     except Exception as e:
         pass # Çizim sırasında hata olursa kod çökmesin, asıl işleme devam etsin
     # --- DEBUG BİTİŞ ---
-
-    ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
-    cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
     puanlar = puanla(cevaplar, answer_key)
 
     ogrenci_no_okunabilir = "?" not in ogrenci_no_str

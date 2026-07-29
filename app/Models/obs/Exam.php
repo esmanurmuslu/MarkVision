@@ -14,7 +14,13 @@ class Exam extends Model
         'course_id',
         'department_id',
         'teacher_id',
-        'exam_date'
+        'exam_date',
+        'total_questions',
+        'answer_key',
+    ];
+
+    protected $casts = [
+        'answer_key' => 'array',
     ];
 
     public function department()

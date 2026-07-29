@@ -137,7 +137,10 @@
 
         <form id="loginForm" class="space-y-4">
             <input type="email" id="email" required placeholder="E-posta" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white">
-            <input type="password" id="password" required placeholder="Şifre" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white">
+            <div class="relative">
+                <input type="password" id="password" required placeholder="Şifre" class="w-full px-4 py-3 pr-11 bg-white/5 border border-white/10 rounded-xl text-sm text-white">
+                <button type="button" id="btnSifreGoster" tabindex="-1" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer select-none">👁</button>
+            </div>
             <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl cursor-pointer">Giriş Yap</button>
         </form>
 
@@ -365,6 +368,14 @@
         const mobilAltMenu = document.getElementById('mobil-alt-menu');
 
         let girisYapanEmail = '';
+
+        const sifreInput = document.getElementById('password');
+        const btnSifreGoster = document.getElementById('btnSifreGoster');
+        btnSifreGoster.addEventListener('click', () => {
+            const gosteriliyor = sifreInput.type === 'text';
+            sifreInput.type = gosteriliyor ? 'password' : 'text';
+            btnSifreGoster.textContent = gosteriliyor ? '👁' : '🙈';
+        });
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -638,10 +649,28 @@
                    veri.data.forEach(sinav => {
                         const opt = document.createElement('option');
                         opt.value = sinav.id;
-                        opt.textContent = `${sinav.course_name ?? 'Ders'} — ${sinav.exam_type ?? 'Sınav'} (${sinav.total_questions} soru)`;
+                        opt.dataset.courseName = sinav.course_name ?? '';
+                        opt.textContent = `${sinav.course_name ?? 'Ders'} — ${sinav.exam_type ?? 'Sınav'}`;
                         select.appendChild(opt);
                     });
                     obsSinavlariYuklendi = true;
+
+                    // OBS sınavı seçilince "Sınav Adı" alanını o sınavın ders
+                    // adıyla otomatik doldurup kilitliyoruz - böylece iki alan
+                    // asla birbirinden FARKLI girilemiyor. "seçilmedi"ye
+                    // dönülürse alan tekrar serbest yazılabilir hale geliyor.
+                    const sinavAdiInput = document.getElementById('cevap_sinav_adi');
+                    select.addEventListener('change', () => {
+                        const secilenOpt = select.options[select.selectedIndex];
+                        if (select.value) {
+                            sinavAdiInput.value = secilenOpt.dataset.courseName || '';
+                            sinavAdiInput.readOnly = true;
+                            sinavAdiInput.classList.add('bg-slate-200', 'cursor-not-allowed');
+                        } else {
+                            sinavAdiInput.readOnly = false;
+                            sinavAdiInput.classList.remove('bg-slate-200', 'cursor-not-allowed');
+                        }
+                    });
                 } else if (veri.success) {
                     const opt = document.createElement('option');
                     opt.value = "";
