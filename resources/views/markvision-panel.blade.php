@@ -98,7 +98,7 @@
                             <div class="text-center font-bold text-slate-700 text-sm mb-2">20 Question Form</div>
                             <ul class="text-[11px] text-slate-600 space-y-1 mb-4">
                                 <li>• Maksimum Soru: <b>20</b></li>
-                                <li>• Öğrenci No: <b>Yok</b></li>
+                                <li>• Öğrenci No: <b>Var (5 Hane)</b></li>
                             </ul>
                         </div>
                         <button onclick="standartPdfIndir(20)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer transition">20 QUESTION - PDF</button>
@@ -377,7 +377,6 @@
             
             if (toplamSoru === 0) { alert("Lütfen en az bir soru bloğu ekleyin!"); aktifAdim = 4; sihirbazGuncelle(); return; }
 
-            // Sihirbazdaki öğrenci numarası ayarlarını alıyoruz
             const hasId = document.getElementById('wiz_has_student_id').checked;
             const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 0;
 
@@ -401,7 +400,6 @@
                 const d = await res.json();
                 if (d.success) {
                     alert("✓ Cevap Kağıdı Başarıyla Yayınlandı!");
-                    // Hane sayısını fonksiyona gönderiyoruz
                     ozelPdfOlusturVeIndir(formAdi, sihirbazSorular, haneSayisi);
                     ekranlariKapat();
                     anaIcerik.classList.remove('hidden');
@@ -413,38 +411,37 @@
             }
         }
 
+        // 20 Soruluk standart form için hane sayısı 5 olarak ayarlandı
         function standartPdfIndir(qCount) {
-            // Soru sayısına göre hane sayısını dinamik belirliyoruz
-            let hane = 9; // Varsayılan 100 soru vs için 9 hane
-            if (qCount === 20) hane = 0; // 20 sorulukta numara yok
-            if (qCount === 50) hane = 5; // 50 sorulukta 5 hane
+            let hane = 9; 
+            if (qCount === 20) hane = 5; // 20 soruluk formda artık 5 haneli öğrenci no var
+            if (qCount === 50) hane = 5; 
             
             ozelPdfOlusturVeIndir(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane);
         }
 
-        // KUSURSUZ HİZALANMIŞ, KÖŞELERE DOĞRU VE ASLA ÇAKIŞMAYAN SON PDF MOTORU
-        // haneSayisi parametresi eklendi (varsayılan 9)
+        // KUSURSUZ HİZALANMIŞ VE TÜM FORMATLARI DESTEKLEYEN PDF MOTORU
         function ozelPdfOlusturVeIndir(fileName, bloklar, haneSayisi = 9) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             
-            // 4 Köşe Siyah Referans Kareleri (Anchor Timing Marks) - Kusursuz Köşelerde
+            // 4 Köşe Siyah Referans Kareleri (Büyütülmüş: 9x9)
             doc.setFillColor(0, 0, 0);
-            doc.rect(14, 14, 6, 6, 'F'); doc.rect(190, 14, 6, 6, 'F');
-            doc.rect(14, 277, 6, 6, 'F'); doc.rect(190, 277, 6, 6, 'F');
+            doc.rect(14, 14, 9, 9, 'F'); doc.rect(187, 14, 9, 9, 'F');
+            doc.rect(14, 274, 9, 9, 'F'); doc.rect(187, 274, 9, 9, 'F');
             
             // Sol Dikey MarkVISION Yazısı
             doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.text("MARKVISION", 17, 170, { angle: 90 });
 
-            // Üst Bilgi Kutusu (Köşelerden Güvenli Uzaklıkta)
+            // Üst Bilgi Kutusu
             doc.setLineWidth(0.4);
-            doc.roundedRect(25, 14, 160, 14, 2, 2, 'S');
-            doc.line(25, 21, 185, 21); doc.line(135, 14, 135, 28); doc.line(95, 21, 95, 28);
+            doc.roundedRect(25, 14, 158, 14, 2, 2, 'S');
+            doc.line(25, 21, 183, 21); doc.line(135, 14, 135, 28); doc.line(95, 21, 95, 28);
             doc.setFontSize(7.5); 
             doc.text("Ad Soyad:", 27, 18); doc.text("Sinif:", 27, 25);
             doc.text("Sinav Adi:", 97, 25); doc.text("Tarih:", 137, 18);
 
-            // ÖĞRENCİ NO MATRİSİ (Sadece haneSayisi 0'dan büyükse çizilir)
+            // ÖĞRENCİ NO MATRİSİ
             if (haneSayisi > 0) {
                 let idStartX = 25; let idStartY = 31;
                 doc.setFontSize(7.5); doc.setFont("helvetica", "bold");
@@ -452,26 +449,26 @@
                 doc.setFont("helvetica", "normal");
                 doc.setLineWidth(0.2);
                 
-                // Sabit 9 yerine haneSayisi değişkeni kullanılıyor
                 for(let i=0; i<haneSayisi; i++) {
-                    let colX = idStartX + (i * 9.5); 
-                    doc.rect(colX, idStartY + 2.5, 7, 3.5); 
+                    let colX = idStartX + (i * 10.5); 
+                    doc.rect(colX, idStartY + 2.5, 7.5, 3.8); 
                     for(let j=0; j<=9; j++) {
-                        let bY = idStartY + 9.0 + (j * 3.0);
-                        doc.circle(colX + 3.5, bY, 1.3);
-                        doc.setFontSize(4.0); 
-                        doc.text(j.toString(), colX + 2.4, bY + 0.6);
+                        let bY = idStartY + 10.0 + (j * 4.2); 
+                        doc.circle(colX + 3.75, bY, 1.9); 
+                        doc.setFontSize(4.5); 
+                        doc.text(j.toString(), colX + 2.5, bY + 0.7);
                     }
                 }
             }
 
-            // SORULARI KESİNLİKLE ÇAKIŞTIRMADAN AŞAĞIDAN BAŞLATMA (Y=72)
+            // SORULAR BÖLÜMÜ
             let soruSayaci = 1;
-            let startX = 25; let startY = 72; 
+            let startX = 25; 
+            let startY = haneSayisi > 0 ? 88 : 38; 
             let colWidth = 56; 
-            let maxPerColumn = 35; 
+            let maxPerColumn = 34; 
 
-            doc.setFontSize(8);
+            doc.setFontSize(8.5);
             bloklar.forEach(blok => {
                 let labels = blok.etiket.split('');
                 for(let k=0; k<blok.adet; k++) {
@@ -480,24 +477,26 @@
                     let rowIndex = (i - 1) % maxPerColumn;
 
                     let qX = startX + (colIndex * colWidth);
-                    let qY = startY + (rowIndex * 5.6);
+                    let qY = startY + (rowIndex * 5.3); 
 
-                    if (qY > 265) {
-                        doc.addPage();
-                        doc.setFillColor(0, 0, 0);
-                        doc.rect(14, 14, 6, 6, 'F'); doc.rect(190, 14, 6, 6, 'F');
-                        doc.rect(14, 277, 6, 6, 'F'); doc.rect(190, 277, 6, 6, 'F');
-                        qY = 35;
+                    if (qY > 265 || colIndex >= 3) {
+                        if (colIndex >= 3 && qY > 265) {
+                            doc.addPage();
+                            doc.setFillColor(0, 0, 0);
+                            doc.rect(14, 14, 9, 9, 'F'); doc.rect(187, 14, 9, 9, 'F');
+                            doc.rect(14, 274, 9, 9, 'F'); doc.rect(187, 274, 9, 9, 'F');
+                            qY = 35;
+                        }
                     }
 
                     doc.setFont("helvetica", "bold");
                     doc.text(i.toString() + ".", qX, qY);
 
                     labels.forEach((harf, idx) => {
-                        let bx = qX + 8 + (idx * 5.2);
-                        doc.circle(bx, qY - 1, 1.9);
-                        doc.setFontSize(4.5); doc.setFont("helvetica", "normal");
-                        doc.text(harf, bx - 0.7, qY + 0.3);
+                        let bx = qX + 9 + (idx * 5.8); 
+                        doc.circle(bx, qY - 1, 2.3); 
+                        doc.setFontSize(5.0); doc.setFont("helvetica", "normal");
+                        doc.text(harf, bx - 0.8, qY + 0.4);
                     });
                     soruSayaci++;
                 }
