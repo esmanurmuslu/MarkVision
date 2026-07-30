@@ -156,12 +156,15 @@ class MarkVisionController extends Controller
                 $obsExamId = null;
             }
 
-            $sinav = Sinav::create([
-                'sinav_adi'      => $request->input('exam_name'),
-                'ders_kodu'      => $dersKodu,
-                'cevap_anahtari' => $request->input('answers'),
-                'obs_exam_id'    => $obsExamId,
-            ]);
+            
+            
+            $sinav = new Sinav();
+            $sinav->sinav_adi = $request->input('exam_name');
+            $sinav->ders_kodu = $dersKodu;
+            $sinav->cevap_anahtari = $request->input('answers');
+            $sinav->obs_exam_id = $obsExamId;
+            $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
+            $sinav->save();
 
             $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
 
@@ -279,6 +282,7 @@ class MarkVisionController extends Controller
                 'exam_id'         => $sinav->id,
                 'total_questions' => $totalQuestions,
                 'answer_key'      => $answerKey,
+                'question_weights'=> $sinav->question_weights ?? [], // YENİ EKLENDİ
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
