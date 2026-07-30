@@ -400,28 +400,28 @@
                 const d = await res.json();
                 if (d.success) {
                     alert("✓ Cevap Kağıdı Başarıyla Yayınlandı!");
-                    ozelPdfOlusturVeIndir(formAdi, sihirbazSorular, haneSayisi);
-                    ekranlariKapat();
-                    anaIcerik.classList.remove('hidden');
                 } else {
-                    alert("Hata: " + (d.message || "Kayıt başarısız."));
+                    console.warn("Kayıt uyarı: " + (d.message || "Bilinmeyen yanıt"));
                 }
             } catch (err) {
-                alert("Bağlantı Hatası: " + err.message);
+                console.warn("Sunucu bağlantısı kurulamadı (Failed to fetch), ancak PDF oluşturma işlemi devam ediyor: " + err.message);
             }
+
+            // Bağlantı kopsa dahi kullanıcı formunu PDF olarak indirebilsin diye try-catch dışına alındı
+            ozelPdfOlusturVeIndir(formAdi, sihirbazSorular, haneSayisi);
+            ekranlariKapat();
+            anaIcerik.classList.remove('hidden');
         }
 
-        // 20 Soruluk standart form için hane sayısı 5 olarak ayarlandı
         function standartPdfIndir(qCount) {
-            let hane = 9; 
-            if (qCount === 20) hane = 5; // 20 soruluk formda artık 5 haneli öğrenci no var
-            if (qCount === 50) hane = 5; 
+            let hane = 5; // 20 ve 50 soruluk formlarda 5 hane
+            if (qCount === 100) hane = 9; // 100 soruluk formda 9 hane
             
             ozelPdfOlusturVeIndir(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane);
         }
 
         // KUSURSUZ HİZALANMIŞ VE TÜM FORMATLARI DESTEKLEYEN PDF MOTORU
-        function ozelPdfOlusturVeIndir(fileName, bloklar, haneSayisi = 9) {
+        function ozelPdfOlusturVeIndir(fileName, bloklar, haneSayisi = 5) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             
