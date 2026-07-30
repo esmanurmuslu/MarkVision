@@ -118,11 +118,6 @@ def sorulari_oku(img_gri, harita, toplam_soru):
 
 
 def puanla(cevaplar, answer_key, question_weights=None):
-    """
-    cevaplar: {soru_no: verilen_harf, ...}         (soru_no int)
-    answer_key: {"1": "A", "2": "B", ...}           (exams.answer_key ile ayni format)
-    question_weights: {"1": 1.0, "2": 2.5, ...}     (her sorunun puani/agirligi)
-    """
     dogru = yanlis = bos = 0
     gecersiz_sorular = []
     
@@ -132,15 +127,22 @@ def puanla(cevaplar, answer_key, question_weights=None):
     if question_weights is None:
         question_weights = {}
 
+    # Eğer answer_key liste gelirse güvenli şekilde sözlüğe çevirelim
+    if isinstance(answer_key, list):
+        answer_key = {str(i + 1): val for i, val in enumerate(answer_key)}
+
+    # Eğer cevaplar liste gelirse sözlüğe çevirelim
+    if isinstance(cevaplar, list):
+        cevaplar = {str(i + 1): val for i, val in enumerate(cevaplar)}
+
     for soru_no, verilen in cevaplar.items():
         soru_no_str = str(soru_no)
         gercek = answer_key.get(soru_no_str)
         
-        # Eğer soruya özel bir ağırlık verilmemişse varsayılan olarak 1.0 kabul et
         agirlik = float(question_weights.get(soru_no_str, 1.0))
         toplam_agirlikli_puan += agirlik
 
-        if verilen == "BOS":
+        if verilen == "BOS" or not verilen:
             bos += 1
         elif verilen == "GECERSIZ":
             yanlis += 1
@@ -150,13 +152,10 @@ def puanla(cevaplar, answer_key, question_weights=None):
             alinan_agirlikli_puan += agirlik
         else:
             yanlis += 1
-            # Yanlış doğruyu götürüyorsa (ceza katsayısı), ceza da ağırlık üzerinden hesaplanır
             alinan_agirlikli_puan -= (agirlik * CEZA_KATSAYISI)
 
-    # Puan eksiye düşmesin
     alinan_agirlikli_puan = max(alinan_agirlikli_puan, 0.0)
     
-    # 100 üzerinden orantıla
     if toplam_agirlikli_puan > 0:
         score = round((alinan_agirlikli_puan / toplam_agirlikli_puan) * 100, 2)
     else:

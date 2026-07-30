@@ -18,5 +18,6 @@ Route::post('/exams/evaluate', [ExamController::class, 'evaluate']);
 Route::get('/exams/{id}/results', [ExamController::class, 'results']);
 
 // MarkVision API
-Route::post('/optik-oku', [MarkVisionController::class, 'formuOkuAPI']);
+Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut']);
 Route::post('/register', [MarkVisionController::class, 'register']);
+Route::post('/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku']);

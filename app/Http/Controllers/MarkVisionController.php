@@ -186,7 +186,9 @@ class MarkVisionController extends Controller
     public function getLatestAnswerKey(Request $request)
     {
         try {
-            $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+            // Session yerine son eklenen sınavı alalım ki hata vermesin:
+$sinav = Sinav::latest()->first();
+$sinavId = $sinav ? $sinav->id : null;
 
             if (!$sinavId) {
                 return response()->json(['success' => false, 'message' => 'Bu oturumda henüz bir cevap anahtarı girilmedi.']);
@@ -482,4 +484,82 @@ class MarkVisionController extends Controller
 {
     return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
 }
+public function anahtarOku(Request $request)
+    {
+        try {
+            $request->validate([
+                'image' => 'required|file|image|max:10240',
+            ]);
+
+            $publicDir = storage_path('app/public/optik_forms');
+            if (!is_dir($publicDir)) mkdir($publicDir, 0777, true);
+
+            $uploadedFile = $request->file('image');
+            $extension = $uploadedFile->getClientOriginalExtension() ?: 'jpg';
+            $imageName = 'anahtar_' . time() . '_' . uniqid() . '.' . $extension;
+
+            $uploadedFile->move($publicDir, $imageName);
+            $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
+
+            // Cevap anahtarı okuma için geçici boş bir sınav şablonu verisi oluşturuyoruz
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
+
+            $sinavBilgisi = [
+                'exam_id' => 0,
+                'total_questions' => 20, // Formunuza göre soru sayısı (örn: 20, 50 vb.)
+                'answer_key' => [],
+            ];
+            $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_anahtar_' . uniqid() . '.json';
+            file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
+
+            $omrDir = base_path('omr_scripts');
+            $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
+            $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
+
+            $command = sprintf(
+                '"%s" "%s" "%s" "%s" "%s" 2>&1',
+                $this->pythonPath,
+                $pipelinePath,
+                $imagePath,
+                $koordinatPath,
+                $sinavPath
+            );
+
+            exec($command, $outputArray, $resultCode);
+            $output = trim(implode("\n", $outputArray));
+
+            @unlink($sinavPath);
+
+            if (!$output) {
+                return response()->json(['success' => false, 'message' => 'Python işlemi çıktı üretmedi.'], 500);
+            }
+
+            $jsonStart = strpos($output, '{');
+            $jsonEnd = strrpos($output, '}');
+            
+            if ($jsonStart !== false && $jsonEnd !== false) {
+                $cleanJson = substr($output, $jsonStart, $jsonEnd - $jsonStart + 1);
+                $sonuc = json_decode($cleanJson, true);
+            } else {
+                $sonuc = json_decode($output, true);
+            }
+
+            if (json_last_error() !== JSON_ERROR_NONE || !isset($sonuc['basarili']) || !$sonuc['basarili']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $sonuc['hata'] ?? 'Cevap anahtarı formu okunamadı.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'cevaplar' => $sonuc['student_answers'] ?? [],
+                'message' => 'Cevap anahtarı başarıyla tarandı.',
+            ]);
+
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
+        }
+    }
 }
