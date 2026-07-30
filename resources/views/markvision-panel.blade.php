@@ -377,6 +377,10 @@
             
             if (toplamSoru === 0) { alert("Lütfen en az bir soru bloğu ekleyin!"); aktifAdim = 4; sihirbazGuncelle(); return; }
 
+            // Sihirbazdaki öğrenci numarası ayarlarını alıyoruz
+            const hasId = document.getElementById('wiz_has_student_id').checked;
+            const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 0;
+
             let answers = {};
             let question_weights = {};
             let sayac = 1;
@@ -397,7 +401,8 @@
                 const d = await res.json();
                 if (d.success) {
                     alert("✓ Cevap Kağıdı Başarıyla Yayınlandı!");
-                    ozelPdfOlusturVeIndir(formAdi, sihirbazSorular);
+                    // Hane sayısını fonksiyona gönderiyoruz
+                    ozelPdfOlusturVeIndir(formAdi, sihirbazSorular, haneSayisi);
                     ekranlariKapat();
                     anaIcerik.classList.remove('hidden');
                 } else {
@@ -409,11 +414,17 @@
         }
 
         function standartPdfIndir(qCount) {
-            ozelPdfOlusturVeIndir(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }]);
+            // Soru sayısına göre hane sayısını dinamik belirliyoruz
+            let hane = 9; // Varsayılan 100 soru vs için 9 hane
+            if (qCount === 20) hane = 0; // 20 sorulukta numara yok
+            if (qCount === 50) hane = 5; // 50 sorulukta 5 hane
+            
+            ozelPdfOlusturVeIndir(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane);
         }
 
         // KUSURSUZ HİZALANMIŞ, KÖŞELERE DOĞRU VE ASLA ÇAKIŞMAYAN SON PDF MOTORU
-        function ozelPdfOlusturVeIndir(fileName, bloklar) {
+        // haneSayisi parametresi eklendi (varsayılan 9)
+        function ozelPdfOlusturVeIndir(fileName, bloklar, haneSayisi = 9) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             
@@ -433,20 +444,24 @@
             doc.text("Ad Soyad:", 27, 18); doc.text("Sinif:", 27, 25);
             doc.text("Sinav Adi:", 97, 25); doc.text("Tarih:", 137, 18);
 
-            // ÖĞRENCİ NO MATRİSİ (Köşelerden Bağımsız, Güvenli Alanda)
-            let idStartX = 25; let idStartY = 31;
-            doc.setFontSize(7.5); doc.setFont("helvetica", "bold");
-            doc.text("Ogrenci No (Student ID)", idStartX, idStartY);
-            doc.setFont("helvetica", "normal");
-            doc.setLineWidth(0.2);
-            for(let i=0; i<9; i++) {
-                let colX = idStartX + (i * 9.5); 
-                doc.rect(colX, idStartY + 2.5, 7, 3.5); 
-                for(let j=0; j<=9; j++) {
-                    let bY = idStartY + 9.0 + (j * 3.0);
-                    doc.circle(colX + 3.5, bY, 1.3);
-                    doc.setFontSize(4.0); 
-                    doc.text(j.toString(), colX + 2.4, bY + 0.6);
+            // ÖĞRENCİ NO MATRİSİ (Sadece haneSayisi 0'dan büyükse çizilir)
+            if (haneSayisi > 0) {
+                let idStartX = 25; let idStartY = 31;
+                doc.setFontSize(7.5); doc.setFont("helvetica", "bold");
+                doc.text("Ogrenci No (Student ID)", idStartX, idStartY);
+                doc.setFont("helvetica", "normal");
+                doc.setLineWidth(0.2);
+                
+                // Sabit 9 yerine haneSayisi değişkeni kullanılıyor
+                for(let i=0; i<haneSayisi; i++) {
+                    let colX = idStartX + (i * 9.5); 
+                    doc.rect(colX, idStartY + 2.5, 7, 3.5); 
+                    for(let j=0; j<=9; j++) {
+                        let bY = idStartY + 9.0 + (j * 3.0);
+                        doc.circle(colX + 3.5, bY, 1.3);
+                        doc.setFontSize(4.0); 
+                        doc.text(j.toString(), colX + 2.4, bY + 0.6);
+                    }
                 }
             }
 
