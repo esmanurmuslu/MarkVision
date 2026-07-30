@@ -21,3 +21,8 @@ Route::get('/exams/{id}/results', [ExamController::class, 'results']);
 Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut']);
 Route::post('/register', [MarkVisionController::class, 'register']);
 Route::post('/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku']);
+
+// Telefon uygulaması ile web panelini birbirine bağlayan API rotaları (MarkVisionController üzerinden)
+Route::get('/v1/classes', [MarkVisionController::class, 'apiSiniflariGetir']);
+Route::post('/v1/classes', [MarkVisionController::class, 'apiSinifKaydet']);
+Route::get('/v1/students', [MarkVisionController::class, 'apiOgrencileriGetir']);

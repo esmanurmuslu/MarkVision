@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MarkVision - Cevap Kağıtları</title>
+    <title>MarkVision - Yönetim Paneli</title>
     <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <style>
         html, body { overflow-x: hidden; width: 100%; margin: 0; padding: 0; }
-        body { min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; }
+        body { min-height: 100vh; font-family: system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
         .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: none; align-items: center; justify-content: center; }
-        .modal-content { background: white; border-radius: 8px; width: 90%; max-width: 600px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
+        .modal-content { background: white; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
+        .tablo-satir:hover { background-color: #f1f5f9; }
     </style>
 </head>
 <script>
@@ -60,117 +61,209 @@
     </div>
 
     <!-- 2. ANA YÖNETİM PANELİ -->
-    <div id="main-dashboard" class="hidden mx-auto w-full max-w-7xl bg-slate-50 ...">
+    <div id="main-dashboard" class="hidden mx-auto w-full max-w-7xl bg-slate-50 text-slate-800 rounded-lg overflow-hidden shadow-2xl flex flex-col min-h-[90vh]">
         
         <!-- ÜST MENÜ BAR -->
-        <header class="bg-[#2c3e50] text-slate-200 shadow-md">
+        <header class="bg-[#34495e] text-slate-200">
             <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-                <div class="flex items-center gap-8">
-                    <div class="text-lg font-black tracking-wider text-emerald-400">MARK<span class="text-white font-light">VISION</span></div>
-                    <nav class="flex items-center gap-2 text-xs font-semibold">
-                        <button id="nav-formlar" class="px-3 py-2 rounded bg-white/10 text-white transition cursor-pointer">Cevap Kağıtları</button>
-                        <button id="nav-gecmis" class="px-3 py-2 rounded hover:bg-white/10 transition text-white cursor-pointer">Geçmiş Sonuçlar</button>
-                    </nav>
+                <div class="text-xl font-black tracking-wider text-emerald-400 flex items-center gap-2">
+                    <span class="bg-emerald-500 text-white rounded-full w-6 h-6 inline-flex items-center justify-center text-sm">✔</span>
+                    MARK<span class="text-white font-light">VISION</span>
                 </div>
-                <div class="flex items-center gap-4 text-xs">
-                    <span id="user-display-name" class="font-semibold text-slate-300">Öğretmen</span>
-                    <button onclick="window.location.reload()" class="text-rose-400 hover:text-rose-300 font-semibold cursor-pointer">Çıkış</button>
+                <div class="text-xs flex items-center gap-4">
+                    <span>Aktif Kullanıcı: <span id="user-display-name" class="font-bold text-white">Öğretmen</span></span>
+                    <button onclick="window.location.reload()" class="text-rose-400 hover:text-rose-300 font-bold cursor-pointer">Çıkış Yap</button>
                 </div>
+            </div>
+            <!-- SEKMELER -->
+            <div class="bg-[#2c3e50] border-t border-slate-600">
+                <nav class="max-w-7xl mx-auto px-6 flex items-center gap-1 text-sm font-semibold">
+                    <button onclick="sekmeDegistir('view-quizzes')" id="nav-quizzes" class="px-5 py-3 bg-slate-100 text-slate-800 rounded-t-lg transition cursor-pointer">Sınavlar (Quizzes)</button>
+                    <button onclick="sekmeDegistir('view-classes')" id="nav-classes" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Sınıflar (Classes)</button>
+                    <button onclick="sekmeDegistir('view-students')" id="nav-students" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Öğrenciler (Students)</button>
+                    <button onclick="sekmeDegistir('view-answer-sheets')" id="nav-answer-sheets" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Optik Formlar (Answer Sheets)</button>
+                    <button onclick="sekmeDegistir('view-gecmis')" id="nav-gecmis" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Geçmiş Sonuçlar</button>
+                </nav>
             </div>
         </header>
 
+        <!-- BİLGİ BARI -->
+        <div class="bg-emerald-100 border-b border-emerald-200 text-emerald-800 text-xs py-2 px-6 text-center">
+            Ücretsiz hesabınızla her ay 100 kağıt okutabilirsiniz. Kalan hak: <b>100 kağıt.</b> 
+            <button class="ml-4 bg-emerald-500 text-white px-3 py-1 rounded">Sınırsız Kullanım Satın Al</button>
+        </div>
+
         <!-- İÇERİK ALANI -->
-        <main class="max-w-7xl w-full mx-auto p-8 flex-1 bg-slate-50/50 space-y-8">
+        <main class="max-w-6xl w-full mx-auto p-8 flex-1 space-y-6">
             
-            <!-- STANDART FORM İNDİRME ALANI -->
-            <div id="ana-icerik-alani" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <!-- 1. SINAVLAR SEKMESİ -->
+            <div id="view-quizzes" class="sekme-icerik space-y-6">
+                <h2 class="text-2xl font-light text-center text-slate-700">Tüm Sınavlar</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer">Seçilenleri Sil</button>
+                        <button onclick="sekmeDegistir('view-answer-sheets')" class="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded hover:bg-emerald-700 cursor-pointer">+ Yeni Sınav / Form Oluştur</button>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-300 rounded overflow-hidden shadow-sm">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-[#4b5563] text-white text-xs">
+                            <tr>
+                                <th class="p-3 w-10 text-center"><input type="checkbox"></th>
+                                <th class="p-3 border-l border-slate-500">Sınıf</th>
+                                <th class="p-3 border-l border-slate-500">Sınav Adı</th>
+                                <th class="p-3 border-l border-slate-500">Tarih</th>
+                                <th class="p-3 border-l border-slate-500">Soru Sayısı</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-slate-600 text-xs">
+                            <tr class="border-b border-slate-200 tablo-satir">
+                                <td class="p-3 text-center"><input type="checkbox"></td>
+                                <td class="p-3 border-l border-slate-200">Fizik Sınıfı</td>
+                                <td class="p-3 border-l border-slate-200 font-bold text-blue-600">Fizik Vize Sınavı</td>
+                                <td class="p-3 border-l border-slate-200">2026-07-28</td>
+                                <td class="p-3 border-l border-slate-200">20</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. SINIFLAR SEKMESİ -->
+            <div id="view-classes" class="sekme-icerik hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-light text-slate-700">Tüm Sınıflar</h2>
+                    <button onclick="sinifEkleModalAc()" class="bg-[#2c3e50] hover:bg-slate-800 text-white px-4 py-2 rounded text-xs font-bold cursor-pointer">+ Yeni Sınıf Ekle</button>
+                </div>
+                <div class="bg-white border border-slate-300 rounded overflow-hidden shadow-sm p-4 text-xs">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-100 text-slate-600 font-bold">
+                            <tr><th class="p-2">Sınıf Adı</th><th class="p-2">Öğrenci Sayısı</th><th class="p-2">İşlemler</th></tr>
+                        </thead>
+                        <tbody id="sinif-tablo-govde">
+                            <tr><td class="p-3 border-t">A Sınıfı</td><td class="p-3 border-t">0</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 3. ÖĞRENCİLER SEKMESİ -->
+            <div id="view-students" class="sekme-icerik hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-2xl font-light text-slate-700">Tüm Öğrenciler</h2>
+                    <button onclick="ogrenciEkleModalAc()" class="bg-[#2c3e50] hover:bg-slate-800 text-white px-4 py-2 rounded text-xs font-bold cursor-pointer">+ Yeni Öğrenci Ekle</button>
+                </div>
+                <div class="bg-white border border-slate-300 rounded overflow-hidden shadow-sm p-4 text-xs">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-100 text-slate-600 font-bold">
+                            <tr><th class="p-2">Öğrenci No</th><th class="p-2">Adı Soyadı</th><th class="p-2">Sınıfı</th><th class="p-2">İşlemler</th></tr>
+                        </thead>
+                        <tbody id="ogrenci-tablo-govde">
+                            <tr><td class="p-3 border-t">101</td><td class="p-3 border-t">Ahmet Yılmaz</td><td class="p-3 border-t">A Sınıfı</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 4. OPTİK FORMLAR SEKMESİ -->
+            <div id="view-answer-sheets" class="sekme-icerik hidden space-y-6">
                 <div class="flex justify-between items-center border-b pb-4">
                     <div>
-                        <h1 class="text-lg font-bold text-slate-800">ZipGrade Answer Sheets (Standart Formlar)</h1>
-                        <p class="text-xs text-slate-500 mt-0.5">Genel kullanım için doğrudan yazdırıp kullanabileceğiniz hazır optik şablonlar.</p>
+                        <h2 class="text-2xl font-light text-slate-700">Optik Form Tasarımcısı</h2>
+                        <p class="text-xs text-slate-500 mt-1">Standart hazır şablonlar indirebilir veya özel form sihirbazını kullanabilirsiniz.</p>
                     </div>
-                    <button id="btnYeniFormAc" class="bg-[#2c3e50] hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-lg text-xs shadow transition cursor-pointer">+ Özel Form Sihirbazı</button>
+                    <button onclick="sekmeAcSihirbaz()" class="bg-[#2c3e50] hover:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-lg text-xs shadow transition cursor-pointer">+ Özel Form Sihirbazı</button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50 flex flex-col justify-between">
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white flex flex-col justify-between shadow-sm">
                         <div>
-                            <div class="text-center font-bold text-slate-700 text-sm mb-2">20 Question Form</div>
+                            <div class="text-center font-bold text-slate-700 text-sm mb-2">20 Soru Formu</div>
                             <ul class="text-[11px] text-slate-600 space-y-1 mb-4">
                                 <li>• Maksimum Soru: <b>20</b></li>
-                                <li>• Öğrenci No: <b>Var (5 Hane)</b></li>
+                                <!-- DÜZELTİLDİ: Öğrenci Numarası Var (5 Hane) olarak güncellendi -->
+                                <li>• Öğrenci No: <b class="text-emerald-600">Var (5 Hane)</b></li>
                             </ul>
                         </div>
-                        <button onclick="standartPdfIndir(20)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer transition">20 QUESTION - PDF</button>
+                        <div class="space-y-2">
+                            <button onclick="standartPdfIndir(20)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PDF İNDİR</button>
+                            <button onclick="standartPngAc(20)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PNG AÇ / KAYDET</button>
+                        </div>
                     </div>
 
-                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50 flex flex-col justify-between">
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white flex flex-col justify-between shadow-sm">
                         <div>
-                            <div class="text-center font-bold text-slate-700 text-sm mb-2">50 Question Form</div>
+                            <div class="text-center font-bold text-slate-700 text-sm mb-2">50 Soru Formu</div>
                             <ul class="text-[11px] text-slate-600 space-y-1 mb-4">
                                 <li>• Maksimum Soru: <b>50</b></li>
                                 <li>• Öğrenci No: <b>Var (5 Hane)</b></li>
                             </ul>
                         </div>
-                        <button onclick="standartPdfIndir(50)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer transition">50 QUESTION - PDF</button>
+                        <div class="space-y-2">
+                            <button onclick="standartPdfIndir(50)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PDF İNDİR</button>
+                            <button onclick="standartPngAc(50)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PNG AÇ / KAYDET</button>
+                        </div>
                     </div>
 
-                    <div class="border border-slate-200 rounded-xl p-5 bg-slate-50 flex flex-col justify-between">
+                    <div class="border border-slate-200 rounded-xl p-5 bg-white flex flex-col justify-between shadow-sm">
                         <div>
-                            <div class="text-center font-bold text-slate-700 text-sm mb-2">100 Question Form</div>
+                            <div class="text-center font-bold text-slate-700 text-sm mb-2">100 Soru Formu</div>
                             <ul class="text-[11px] text-slate-600 space-y-1 mb-4">
                                 <li>• Maksimum Soru: <b>100</b></li>
                                 <li>• Öğrenci No: <b>Var (9 Hane)</b></li>
                             </ul>
                         </div>
-                        <button onclick="standartPdfIndir(100)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer transition">100 QUESTION - PDF</button>
+                        <div class="space-y-2">
+                            <button onclick="standartPdfIndir(100)" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PDF İNDİR</button>
+                            <button onclick="standartPngAc(100)" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg text-xs shadow cursor-pointer">PNG AÇ / KAYDET</button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 5 ADIMLI SİHİRBAZ EKRANI -->
-            <div id="view-sihirbaz" class="hidden max-w-4xl mx-auto space-y-6">
+            <!-- ÖZEL FORM SİHİRBAZI -->
+            <div id="view-sihirbaz" class="sekme-icerik hidden max-w-4xl mx-auto space-y-6">
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="bg-[#2c3e50] p-4 text-white flex items-center justify-between">
-                        <h2 class="text-sm font-bold" id="sihirbaz-baslik">Step 1 of 5: Custom Answer Sheet Name</h2>
-                        <span class="text-xs opacity-80">MarkVision Form Designer</span>
+                        <h2 class="text-sm font-bold" id="sihirbaz-baslik">Adım 1 / 5: Form Adı</h2>
+                        <span class="text-xs opacity-80">MarkVision Tasarımcısı</span>
                     </div>
 
                     <div class="p-8 space-y-6 text-sm">
                         <div id="adim-1" class="sihirbaz-adim space-y-4">
-                            <label class="block text-xs font-bold text-slate-600 uppercase">Form / Sınav Adı (Name)</label>
-                            <input type="text" id="wiz_form_name" placeholder="Örn: Fizik Vize Sınavı" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:border-blue-500">
+                            <label class="block text-xs font-bold text-slate-600 uppercase">Sınav / Form Adı</label>
+                            <input type="text" id="wiz_form_name" placeholder="Örn: Fizik Vize Sınavı" class="w-full border border-slate-300 rounded-lg p-3 text-sm bg-white">
                         </div>
 
                         <div id="adim-2" class="sihirbaz-adim hidden space-y-4">
-                            <h3 class="font-bold text-slate-700 text-xs uppercase">Header Boxes (Üst Bilgi Alanları)</h3>
+                            <h3 class="font-bold text-slate-700 text-xs uppercase">Üst Bilgi Alanları</h3>
                             <table class="w-full text-xs border border-slate-200">
-                                <thead class="bg-slate-100"><tr><th class="p-2 border">Kullanım</th><th class="p-2 border text-center">Aktif mi?</th><th class="p-2 border">Görünen Etiket</th></tr></thead>
+                                <thead class="bg-slate-100"><tr><th class="p-2 border">Alan</th><th class="p-2 border text-center">Aktif mi?</th><th class="p-2 border">Etiket</th></tr></thead>
                                 <tbody>
-                                    <tr><td class="p-2 border">Ad Soyad</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_name" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Ad Soyad" id="lbl_name" class="border rounded p-1 w-full text-xs"></td></tr>
-                                    <tr><td class="p-2 border">Sınıf / Şube</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_class" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Sinif" id="lbl_class" class="border rounded p-1 w-full text-xs"></td></tr>
-                                    <tr><td class="p-2 border">Sınav / Quiz</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_quiz" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Sinav Adi" id="lbl_quiz" class="border rounded p-1 w-full text-xs"></td></tr>
+                                    <tr><td class="p-2 border">Ad Soyad</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_name" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Ad Soyad" id="lbl_name" class="border rounded p-1 w-full text-xs bg-white"></td></tr>
+                                    <tr><td class="p-2 border">Sınıf</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_class" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Sinif" id="lbl_class" class="border rounded p-1 w-full text-xs bg-white"></td></tr>
+                                    <tr><td class="p-2 border">Sınav Adı</td><td class="p-2 border text-center"><input type="checkbox" checked id="box_quiz" class="w-4 h-4"></td><td class="p-2 border"><input type="text" value="Sinav Adi" id="lbl_quiz" class="border rounded p-1 w-full text-xs bg-white"></td></tr>
                                 </tbody>
                             </table>
                         </div>
 
                         <div id="adim-3" class="sihirbaz-adim hidden space-y-4">
                             <div class="border p-4 rounded-lg bg-slate-50 space-y-3">
-                                <label class="flex items-center gap-2 font-bold text-xs"><input type="checkbox" id="wiz_has_student_id" checked class="w-4 h-4"> Include Student ID Section (Öğrenci Numarası Alanı)</label>
+                                <label class="flex items-center gap-2 font-bold text-xs"><input type="checkbox" id="wiz_has_student_id" checked class="w-4 h-4"> Öğrenci Numarası Alanı Ekle</label>
                                 <div class="flex items-center gap-4 text-xs">
                                     <span>Hane Sayısı:</span>
-                                    <select id="wiz_id_digits" class="border rounded p-1.5"><option value="5">5</option><option value="9" selected>9</option><option value="11">11</option></select>
+                                    <select id="wiz_id_digits" class="border rounded p-1.5 bg-white"><option value="5">5</option><option value="9" selected>9</option><option value="11">11</option></select>
                                 </div>
                             </div>
                         </div>
 
                         <div id="adim-4" class="sihirbaz-adim hidden space-y-4">
                             <div class="flex justify-between items-center">
-                                <h3 class="font-bold text-xs uppercase text-slate-700">Tanımlanan Soru Blokları</h3>
+                                <h3 class="font-bold text-xs uppercase text-slate-700">Soru Blokları</h3>
                                 <button type="button" id="btnSoruBlokEkle" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded text-xs cursor-pointer">+ Soru Bloğu Ekle</button>
                             </div>
                             <table class="w-full text-xs border border-slate-200">
-                                <thead class="bg-slate-100"><tr><th class="p-2 border">Soru Adeti</th><th class="p-2 border">Şık Formatı</th><th class="p-2 border">Puan (Ağırlık)</th></tr></thead>
+                                <thead class="bg-slate-100"><tr><th class="p-2 border">Soru Adeti</th><th class="p-2 border">Şıklar</th><th class="p-2 border">Puan</th></tr></thead>
                                 <tbody id="wiz_question_list">
                                     <tr><td colspan="3" class="p-4 text-center text-slate-400 italic">Henüz soru eklenmedi.</td></tr>
                                 </tbody>
@@ -178,8 +271,8 @@
                         </div>
 
                         <div id="adim-5" class="sihirbaz-adim hidden space-y-4 text-center">
-                            <h3 class="font-bold text-sm text-slate-800">Tebrikler! Form Tasarımı Hazır</h3>
-                            <p class="text-xs text-slate-500">Formu sisteme kaydetmek ve anında PDF olarak indirmek için "Publish" butonuna basın.</p>
+                            <h3 class="font-bold text-sm text-slate-800">Tebrikler! Tasarım Hazır</h3>
+                            <p class="text-xs text-slate-500">Formu kaydetmek ve indirmek için Yayınla butonuna basın.</p>
                             <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-semibold">
                                 Sınav Adı: <span id="onizleme_ad" class="font-bold"></span> | Toplam Soru: <span id="onizleme_soru" class="font-bold"></span>
                             </div>
@@ -193,8 +286,8 @@
                 </div>
             </div>
 
-            <!-- GEÇMİŞ SONUÇLAR -->
-            <div id="view-gecmis" class="hidden space-y-6">
+            <!-- 5. GEÇMİŞ SONUÇLAR -->
+            <div id="view-gecmis" class="sekme-icerik hidden space-y-6">
                 <div class="bg-white p-6 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
                     <div><h2 class="text-lg font-bold text-slate-800">Geçmiş Sınav Sonuçları</h2><p class="text-xs text-slate-400 mt-1">Sistemdeki tüm okutulmuş sınavlar</p></div>
                     <a href="{{ route('panel.export') }}" class="bg-emerald-600 text-white font-bold py-2 px-4 rounded-xl text-xs shadow">📥 Excel İndir</a>
@@ -209,34 +302,65 @@
 
         </main>
 
-        <footer class="bg-[#2c3e50] text-slate-400 text-[11px] py-4 text-center border-t border-slate-700">
-            MarkVision Educational Systems © 2026 — All Rights Reserved.
+        <footer class="bg-[#34495e] text-slate-400 text-[11px] py-8 border-t border-slate-700 mt-auto">
+            <div class="max-w-6xl mx-auto px-6 grid grid-cols-3 gap-8 text-xs">
+                <div><h4 class="text-emerald-400 font-bold mb-2">MARKVISION İNDİR</h4><p class="mb-2">iPhone ve Android için</p></div>
+                <div><h4 class="text-emerald-400 font-bold mb-2">ÜRÜN</h4><ul class="space-y-1"><li>Fiyatlandırma</li><li>Optik Formlar</li><li>Destek</li></ul></div>
+                <div><h4 class="text-emerald-400 font-bold mb-2">ŞİRKET:</h4><ul class="space-y-1"><li>Hakkımızda</li><li>Gizlilik Politikası</li><li>Kullanım Şartları</li></ul></div>
+            </div>
         </footer>
+    </div>
+
+    <!-- MODAL: Sınıf Ekleme -->
+    <div class="modal-bg" id="sinifEkleModal">
+        <div class="modal-content">
+            <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span>Yeni Sınıf Ekle</span>
+                <button type="button" onclick="modalKapat('sinifEkleModal')" class="cursor-pointer text-lg font-bold">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <div><label class="block font-semibold mb-1">Sınıf Adı</label><input type="text" id="yeni_sinif_adi" placeholder="Örn: 10-A" class="w-full border rounded p-2 text-xs bg-white"></div>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
+                <button type="button" onclick="modalKapat('sinifEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
+                <button type="button" onclick="sinifKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Öğrenci Ekleme -->
+    <div class="modal-bg" id="ogrenciEkleModal">
+        <div class="modal-content">
+            <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span>Yeni Öğrenci Ekle</span>
+                <button type="button" onclick="modalKapat('ogrenciEkleModal')" class="cursor-pointer text-lg font-bold">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <div><label class="block font-semibold mb-1">Öğrenci Numarası</label><input type="text" id="yeni_ogr_no" placeholder="Örn: 101" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Adı Soyadı</label><input type="text" id="yeni_ogr_ad" placeholder="Örn: Ahmet Yılmaz" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Sınıfı</label><input type="text" id="yeni_ogr_sinif" placeholder="Örn: A Sınıfı" class="w-full border rounded p-2 text-xs bg-white"></div>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
+                <button type="button" onclick="modalKapat('ogrenciEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
+                <button type="button" onclick="ogrenciKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODAL: Soru Ekleme -->
     <div class="modal-bg" id="soruEkleModal">
         <div class="modal-content">
             <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
-                <span>Add Multiple-Choice Questions</span>
-                <button type="button" id="modalKapatBtn" class="cursor-pointer text-lg font-bold">×</button>
+                <span>Soru Bloğu Ekle</span>
+                <button type="button" onclick="modalKapat('soruEkleModal')" class="cursor-pointer text-lg font-bold">×</button>
             </div>
             <div class="p-6 space-y-4 text-xs">
-                <div>
-                    <label class="block font-semibold mb-1">Soru Sayısı (Number of Questions)</label>
-                    <input type="number" id="modal_adet" value="20" min="1" max="100" class="w-full border rounded p-2 text-xs">
-                </div>
-                <div>
-                    <label class="block font-semibold mb-1">Yanıt Etiketleri (Labels)</label>
-                    <input type="text" id="modal_etiket" value="ABCDE" class="w-full border rounded p-2 text-xs font-mono tracking-widest uppercase">
-                </div>
-                <div>
-                    <label class="block font-semibold mb-1 text-emerald-700">Soru Başına Puan (Weight)</label>
-                    <input type="number" id="modal_puan" value="5" step="0.5" class="w-full border border-emerald-300 rounded p-2 text-xs font-bold text-emerald-700">
-                </div>
+                <div><label class="block font-semibold mb-1">Soru Sayısı</label><input type="number" id="modal_adet" value="20" min="1" max="100" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Şık Etiketleri</label><input type="text" id="modal_etiket" value="ABCDE" class="w-full border rounded p-2 text-xs font-mono uppercase bg-white"></div>
+                <div><label class="block font-semibold mb-1 text-emerald-700">Soru Başına Puan</label><input type="number" id="modal_puan" value="5" step="0.5" class="w-full border border-emerald-300 rounded p-2 text-xs font-bold text-emerald-700 bg-white"></div>
             </div>
             <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
-                <button type="button" id="modalIptalBtn" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
+                <button type="button" onclick="modalKapat('soruEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
                 <button type="button" id="modalEkleBtn" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Ekle</button>
             </div>
         </div>
@@ -265,7 +389,7 @@
             if (data.success) {
                 loginScreen.classList.add('hidden');
                 mainDashboard.classList.remove('hidden');
-                mainBody.className = "bg-[#f1f5f9] p-4 flex items-center justify-center min-h-screen";
+                mainBody.className = "bg-[#f8fafc] text-slate-800 min-h-screen transition-all duration-500";
                 document.getElementById('user-display-name').textContent = data.user.ad;
             } else {
                 const err = document.getElementById('login-error');
@@ -274,74 +398,99 @@
             }
         });
 
-        const viewSihirbaz = document.getElementById('view-sihirbaz');
-        const viewGecmis = document.getElementById('view-gecmis');
-        const anaIcerik = document.getElementById('ana-icerik-alani');
-        const navFormlar = document.getElementById('nav-formlar');
-        const navGecmis = document.getElementById('nav-gecmis');
+        function sekmeDegistir(hedefId) {
+            document.querySelectorAll('.sekme-icerik').forEach(el => el.classList.add('hidden'));
+            document.getElementById(hedefId).classList.remove('hidden');
 
-        function ekranlariKapat() {
-            viewSihirbaz.classList.add('hidden');
-            viewGecmis.classList.add('hidden');
-            anaIcerik.classList.add('hidden');
+            document.querySelectorAll('header nav button').forEach(btn => {
+                btn.className = "px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer";
+            });
+
+            const aktifBtn = document.getElementById('nav-' + hedefId.replace('view-', ''));
+            if(aktifBtn) {
+                aktifBtn.className = "px-5 py-3 bg-slate-100 text-slate-800 font-bold rounded-t-lg transition cursor-pointer";
+            }
+            
+            // Geçmiş sekmesi seçilirse tabloyu doldur
+            if(hedefId === 'view-gecmis') {
+                gecmisTablosunuDoldur();
+            }
         }
 
-        navFormlar.addEventListener('click', () => {
-            ekranlariKapat();
-            anaIcerik.classList.remove('hidden');
-        });
+        async function gecmisTablosunuDoldur() {
+            try {
+                const res = await fetch("{{ route('panel.gecmis') }}"); 
+                const d = await res.json();
+                const tb = document.getElementById('gecmis-tablo-body'); tb.innerHTML = "";
+                if (d.success && d.data && d.data.length > 0) {
+                    d.data.forEach(i => {
+                        tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">#${i.id}</td><td class="p-3">${i.exam_name}</td><td class="p-3 text-emerald-600 font-bold">${i.correct_count}D / ${i.wrong_count}Y</td><td class="p-3 font-black text-blue-600">${i.total_score} Puan</td><td class="p-3 text-slate-400">${new Date(i.created_at).toLocaleString('tr-TR')}</td></tr>`;
+                    });
+                } else { tb.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Kayıt bulunamadı.</td></tr>`; }
+            } catch (err) {
+                console.warn("Geçmiş sonuçlar yüklenemedi: " + err.message);
+            }
+        }
 
-        navGecmis.addEventListener('click', async () => {
-            ekranlariKapat();
-            viewGecmis.classList.remove('hidden');
-            const res = await fetch("{{ route('panel.gecmis') }}"); const d = await res.json();
-            const tb = document.getElementById('gecmis-tablo-body'); tb.innerHTML = "";
-            if (d.success && d.data.length > 0) {
-                d.data.forEach(i => {
-                    tb.innerHTML += `<tr class="border-b"><td class="p-3 font-bold">#${i.id}</td><td class="p-3">${i.exam_name}</td><td class="p-3 text-emerald-600 font-bold">${i.correct_count}D / ${i.wrong_count}Y</td><td class="p-3 font-black text-blue-600">${i.total_score} Puan</td><td class="p-3 text-slate-400">${new Date(i.created_at).toLocaleString('tr-TR')}</td></tr>`;
-                });
-            } else { tb.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Kayıt bulunamadı.</td></tr>`; }
-        });
+        function sekmeAcSihirbaz() {
+            sekmeDegistir('view-sihirbaz');
+            aktifAdim = 1; sihirbazSorular = [];
+            sihirbazGuncelle();
+        }
+
+        function sinifEkleModalAc() { document.getElementById('sinifEkleModal').style.display = 'flex'; }
+        function ogrenciEkleModalAc() { document.getElementById('ogrenciEkleModal').style.display = 'flex'; }
+        function modalKapat(id) { document.getElementById(id).style.display = 'none'; }
+
+        function sinifKaydet() {
+            const ad = document.getElementById('yeni_sinif_adi').value;
+            if(!ad) return alert("Sınıf adı giriniz!");
+            const tbody = document.getElementById('sinif-tablo-govde');
+            tbody.innerHTML += `<tr><td class="p-3 border-t">${ad}</td><td class="p-3 border-t">0</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>`;
+            modalKapat('sinifEkleModal');
+            document.getElementById('yeni_sinif_adi').value = "";
+        }
+
+        function ogrenciKaydet() {
+            const no = document.getElementById('yeni_ogr_no').value;
+            const ad = document.getElementById('yeni_ogr_ad').value;
+            const sinif = document.getElementById('yeni_ogr_sinif').value;
+            if(!no || !ad) return alert("Bilgileri doldurunuz!");
+            const tbody = document.getElementById('ogrenci-tablo-govde');
+            tbody.innerHTML += `<tr><td class="p-3 border-t">${no}</td><td class="p-3 border-t">${ad}</td><td class="p-3 border-t">${sinif}</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>`;
+            modalKapat('ogrenciEkleModal');
+            document.getElementById('yeni_ogr_no').value = ""; document.getElementById('yeni_ogr_ad').value = "";
+        }
 
         let aktifAdim = 1;
         let sihirbazSorular = [];
 
-        document.getElementById('btnYeniFormAc').addEventListener('click', () => {
-            ekranlariKapat();
-            aktifAdim = 1; sihirbazSorular = [];
-            sihirbazGuncelle();
-            viewSihirbaz.classList.remove('hidden');
-        });
-
         function sihirbazGuncelle() {
             document.querySelectorAll('.sihirbaz-adim').forEach(a => a.classList.add('hidden'));
             document.getElementById(`adim-${aktifAdim}`).classList.remove('hidden');
-            document.getElementById('sihirbaz-baslik').textContent = `Step ${aktifAdim} of 5: ${adimBasligiGetir(aktifAdim)}`;
+            document.getElementById('sihirbaz-baslik').textContent = `Adım ${aktifAdim} / 5: ${adimBasligiGetir(aktifAdim)}`;
             
             if (aktifAdim === 5) {
                 document.getElementById('onizleme_ad').textContent = document.getElementById('wiz_form_name').value || "İsimsiz Sınav";
                 let toplamSoru = sihirbazSorular.reduce((acc, curr) => acc + curr.adet, 0);
                 document.getElementById('onizleme_soru').textContent = toplamSoru;
-                document.getElementById('wizBtnNext').textContent = "Publish";
+                document.getElementById('wizBtnNext').textContent = "Yayınla";
             } else {
                 document.getElementById('wizBtnNext').textContent = "İleri →";
             }
         }
 
         function adimBasligiGetir(a) {
-            if(a===1) return "Custom Answer Sheet Name";
-            if(a===2) return "Header Boxes";
-            if(a===3) return "Key Version and Student ID";
-            if(a===4) return "Define Questions";
-            if(a===5) return "Review and Publish";
+            if(a===1) return "Sınav Adı";
+            if(a===2) return "Üst Bilgiler";
+            if(a===3) return "Öğrenci Numarası";
+            if(a===4) return "Soruları Tanımla";
+            if(a===5) return "Önizleme ve Yayınla";
         }
 
         document.getElementById('wizBtnBack').addEventListener('click', () => {
             if (aktifAdim > 1) { aktifAdim--; sihirbazGuncelle(); }
-            else { 
-                ekranlariKapat();
-                anaIcerik.classList.remove('hidden');
-            }
+            else { sekmeDegistir('view-answer-sheets'); }
         });
 
         document.getElementById('wizBtnNext').addEventListener('click', async () => {
@@ -352,10 +501,7 @@
             }
         });
 
-        const modal = document.getElementById('soruEkleModal');
-        document.getElementById('btnSoruBlokEkle').addEventListener('click', () => modal.style.display = 'flex');
-        document.getElementById('modalKapatBtn').addEventListener('click', () => modal.style.display = 'none');
-        document.getElementById('modalIptalBtn').addEventListener('click', () => modal.style.display = 'none');
+        document.getElementById('btnSoruBlokEkle').addEventListener('click', () => document.getElementById('soruEkleModal').style.display = 'flex');
 
         document.getElementById('modalEkleBtn').addEventListener('click', () => {
             const adet = parseInt(document.getElementById('modal_adet').value);
@@ -363,18 +509,15 @@
             const puan = parseFloat(document.getElementById('modal_puan').value) || 1.0;
 
             sihirbazSorular.push({ adet, etiket, puan });
-            
             const liste = document.getElementById('wiz_question_list');
             if (sihirbazSorular.length === 1) liste.innerHTML = "";
-            
             liste.innerHTML += `<tr class="border-b"><td class="p-2 border">${adet} Soru</td><td class="p-2 border font-mono">${etiket}</td><td class="p-2 border text-emerald-600 font-bold">${puan} Puan</td></tr>`;
-            modal.style.display = 'none';
+            modalKapat('soruEkleModal');
         });
 
         async function publisFormuKaydet() {
             const formAdi = document.getElementById('wiz_form_name').value || "Ozel_Optik_Form";
             let toplamSoru = sihirbazSorular.reduce((acc, curr) => acc + curr.adet, 0);
-            
             if (toplamSoru === 0) { alert("Lütfen en az bir soru bloğu ekleyin!"); aktifAdim = 4; sihirbazGuncelle(); return; }
 
             const hasId = document.getElementById('wiz_has_student_id').checked;
@@ -400,6 +543,7 @@
                 const d = await res.json();
                 if (d.success) {
                     alert("✓ Cevap Kağıdı Başarıyla Yayınlandı!");
+                    sekmeDegistir('view-quizzes');
                 } else {
                     console.warn("Kayıt uyarı: " + (d.message || "Bilinmeyen yanıt"));
                 }
@@ -407,21 +551,23 @@
                 console.warn("Sunucu bağlantısı kurulamadı (Failed to fetch), ancak PDF oluşturma işlemi devam ediyor: " + err.message);
             }
 
-            // Bağlantı kopsa dahi kullanıcı formunu PDF olarak indirebilsin diye try-catch dışına alındı
-            ozelPdfOlusturVeIndir(formAdi, sihirbazSorular, haneSayisi);
-            ekranlariKapat();
-            anaIcerik.classList.remove('hidden');
+            orijinalOptikFormOlustur(formAdi, sihirbazSorular, haneSayisi, 'pdf');
         }
 
         function standartPdfIndir(qCount) {
-            let hane = 5; // 20 ve 50 soruluk formlarda 5 hane
-            if (qCount === 100) hane = 9; // 100 soruluk formda 9 hane
-            
-            ozelPdfOlusturVeIndir(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane);
+            // DÜZELTİLDİ: 20 soruluk, 50 soruluk ve 100 soruluk formların hepsi Öğrenci Numarasına sahip!
+            let hane = (qCount === 100) ? 9 : 5;
+            orijinalOptikFormOlustur(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane, 'pdf');
         }
 
-        // KUSURSUZ HİZALANMIŞ VE TÜM FORMATLARI DESTEKLEYEN PDF MOTORU
-        function ozelPdfOlusturVeIndir(fileName, bloklar, haneSayisi = 5) {
+        function standartPngAc(qCount) {
+            // DÜZELTİLDİ: 20 soruluk, 50 soruluk ve 100 soruluk formların hepsi Öğrenci Numarasına sahip!
+            let hane = (qCount === 100) ? 9 : 5;
+            orijinalOptikFormOlustur(`ZipGrade_${qCount}_Question_Form`, [{ adet: qCount, etiket: "ABCDE" }], hane, 'png');
+        }
+
+        // ARKADAŞININ YAZDIĞI KUSURSUZ PDF/OPTİK MOTORU + SENİN PNG ÖNİZLEME SİSTEMİN
+        function orijinalOptikFormOlustur(fileName, bloklar, haneSayisi = 5, format = 'pdf') {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'mm', 'a4');
             
@@ -502,7 +648,24 @@
                 }
             });
 
-            doc.save(fileName + ".pdf");
+            // SENİN YAPTIĞIN PNG ÖNİZLEME (IFRAME) SİSTEMİ
+            if (format === 'png') {
+                const pdfData = doc.output('datauristring');
+                const newWindow = window.open();
+                newWindow.document.write(`
+                    <html>
+                        <head><title>${fileName} - Önizleme</title></head>
+                        <body style="margin:0; background:#555; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
+                            <div style="background:white; padding:10px; margin-bottom:10px; border-radius:5px; font-family:sans-serif; font-size:14px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                                💡 <b>İpucu:</b> Bu sayfadaki forma sağ tıklayıp <b>"Resmi Farklı Kaydet"</b> diyerek veya ekran görüntüsü alarak hemen <b>test.jpg / test.png</b> olarak \`omr_scripts\` klasörüne kaydedebilirsiniz!
+                            </div>
+                            <iframe src="${pdfData}" style="width:800px; height:90vh; border:none; border-radius:4px; box-shadow:0 10px 25px rgba(0,0,0,0.5);"></iframe>
+                        </body>
+                    </html>
+                `);
+            } else {
+                doc.save(fileName + ".pdf");
+            }
         }
     </script>
 </body>

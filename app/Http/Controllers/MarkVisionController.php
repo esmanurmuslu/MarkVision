@@ -562,4 +562,29 @@ public function anahtarOku(Request $request)
             return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
         }
     }
+    // --- TELEFON UYGULAMASI İÇİN SENKRONİZASYON API METOTLARI ---
+
+    public function apiSiniflariGetir(Request $request)
+    {
+        // Veritabanındaki sınıfları telefona JSON olarak döndürür
+        $siniflar = \DB::table('siniflar')->get(); // Tablo adın neyse (classes veya siniflar)
+        return response()->json(['success' => true, 'data' => $siniflar]);
+    }
+
+    public function apiSinifKaydet(Request $request)
+    {
+        // Telefonda eklenen sınıfı veritabanına kaydeder
+        $id = \DB::table('siniflar')->insertGetId([
+            'class_name' => $request->class_name,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+        return response()->json(['success' => true, 'id' => $id, 'message' => 'Sınıf eklendi']);
+    }
+
+    public function apiOgrencileriGetir(Request $request)
+    {
+        $ogrenciler = \DB::table('students')->get();
+        return response()->json(['success' => true, 'data' => $ogrenciler]);
+    }
 }
