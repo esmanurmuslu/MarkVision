@@ -59,6 +59,40 @@ Route::get('/obs-sinavlari', [MarkVisionController::class, 'obsSinavlariGetir'])
 Route::post('/obs-kaydet', [MarkVisionController::class, 'obsKaydet'])
     ->name('panel.obskaydet');
 
+/*
+|--------------------------------------------------------------------------
+| PANEL: SINAVLAR / SINIFLAR / ÖĞRENCİLER (kullanıcıya özel — YENİ EKLENDİ)
+|--------------------------------------------------------------------------
+| Öncesinde bu üç sekme tamamen HTML'e gömülü sahte veriydi. Artık her
+| kayıt Auth::id() (giriş yapan öğretmen) ile filtreleniyor.
+*/
+
+// Sınavlar
+Route::get('/panel/sinavlar', [MarkVisionController::class, 'panelSinavlariGetir'])
+    ->name('panel.sinavlar.listele');
+Route::post('/panel/sinavlar/sil', [MarkVisionController::class, 'panelSinavSil'])
+    ->name('panel.sinavlar.sil');
+
+// Sınıflar
+Route::get('/panel/siniflar', [MarkVisionController::class, 'panelSiniflariGetir'])
+    ->name('panel.siniflar.listele');
+Route::post('/panel/siniflar', [MarkVisionController::class, 'panelSinifEkle'])
+    ->name('panel.siniflar.ekle');
+Route::put('/panel/siniflar/{id}', [MarkVisionController::class, 'panelSinifGuncelle'])
+    ->name('panel.siniflar.guncelle');
+Route::delete('/panel/siniflar/{id}', [MarkVisionController::class, 'panelSinifSil'])
+    ->name('panel.siniflar.sil');
+
+// Öğrenciler
+Route::get('/panel/ogrenciler', [MarkVisionController::class, 'panelOgrencileriGetir'])
+    ->name('panel.ogrenciler.listele');
+Route::post('/panel/ogrenciler', [MarkVisionController::class, 'panelOgrenciEkle'])
+    ->name('panel.ogrenciler.ekle');
+Route::put('/panel/ogrenciler/{id}', [MarkVisionController::class, 'panelOgrenciGuncelle'])
+    ->name('panel.ogrenciler.guncelle');
+Route::delete('/panel/ogrenciler/{id}', [MarkVisionController::class, 'panelOgrenciSil'])
+    ->name('panel.ogrenciler.sil');
+
 // Kayıt
 Route::get('/register', [MarkVisionController::class, 'showRegister'])
     ->name('register');

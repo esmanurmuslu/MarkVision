@@ -35,7 +35,15 @@ class MarkVisionController extends Controller
             $teacher = DB::table('teachers')->where('email', $request->email)->first();
 
             if ($teacher && Hash::check($request->password, $teacher->password)) {
-                // Mobil API isteklerinde session/auth hatası almamak için güvenli dönüş
+                $userModel = User::find($teacher->id);
+                if (!$userModel) {
+                    $userModel = new User();
+                    $userModel->forceFill((array) $teacher);
+                }
+                Auth::login($userModel);
+
+                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+
                 return response()->json([
                     'success' => true,
                     'user' => [
@@ -45,6 +53,38 @@ class MarkVisionController extends Controller
                 ]);
             }
             return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // Mobil (Flutter) uygulamadan giriş için JSON dönen stateless sürüm.
+    // login() ile birebir aynı doğrulamayı (teachers tablosu + Hash::check)
+    // kullanır ama Auth::login()/session çağırmaz — api.php rotaları
+    // stateless olduğu için web panelindeki session tabanlı login() burada
+    // işe yaramaz.
+    public function loginApi(Request $request)
+    {
+        try {
+            $request->validate(['email' => 'required|email', 'password' => 'required']);
+            $teacher = DB::table('teachers')->where('email', $request->email)->first();
+
+            if ($teacher && Hash::check($request->password, $teacher->password)) {
+                return response()->json([
+                    'success' => true,
+                    'user' => [
+                        'id'  => $teacher->id,
+                        'ad'  => $teacher->name . ' ' . $teacher->surname,
+                        'rol' => 'Öğretmen / Akademisyen',
+                    ],
+                ]);
+            }
+            return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
@@ -120,6 +160,9 @@ class MarkVisionController extends Controller
     }
 
     // Mobil (Flutter) uygulamadan kayıt için JSON dönen sürüm.
+    // registerStore() ile aynı validasyonu kullanır ama redirect yerine
+    // JSON döner ve Auth::login() çağırmaz (api.php rotaları stateless,
+    // session/cookie tabanlı oturum açmanın mobilde bir karşılığı yok).
     public function registerApi(Request $request)
     {
         try {
@@ -171,6 +214,7 @@ class MarkVisionController extends Controller
             $request->validate([
                 'exam_name'   => 'required|string|max:255',
                 'ders_kodu'   => 'nullable|string|max:50',
+                // Mobilde boş string veya null gelebileceği için nullable ve integer olmasını sağlıyoruz
                 'obs_exam_id' => 'nullable', 
                 'answers'     => 'required|array|min:1',
                 'answers.*'   => 'required|string|in:A,B,C,D,E',
@@ -187,6 +231,7 @@ class MarkVisionController extends Controller
                 }
             }
 
+            // OBS sınav ID boş veya "seçilmedi" ise null yapalım
             $obsExamId = $request->input('obs_exam_id');
             if (empty($obsExamId) || $obsExamId === 'null' || $obsExamId === '0') {
                 $obsExamId = null;
@@ -197,9 +242,14 @@ class MarkVisionController extends Controller
             $sinav->ders_kodu = $dersKodu;
             $sinav->cevap_anahtari = $request->input('answers');
             $sinav->obs_exam_id = $obsExamId;
-            $sinav->question_weights = $request->input('question_weights');
+            $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
+            $sinav->teacher_id = Auth::id(); // YENİ EKLENDİ: panelde sadece bu öğretmene göster
             $sinav->save();
 
+            // Web panelinde (session var) eskisi gibi "aktif sınav" session'a yazılır.
+            // Mobil/api.php üzerinden gelen isteklerde session hiç yoktur (stateless),
+            // bu durumda hasSession() false döner ve burada patlamadan geçilir.
+            // Mobil taraf aktif sınavı bu response'taki 'sinav_id' değeriyle takip eder.
             if ($request->hasSession()) {
                 $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
             }
@@ -222,6 +272,7 @@ class MarkVisionController extends Controller
     public function getLatestAnswerKey(Request $request)
     {
         try {
+            // Session yerine son eklenen sınavı alalım ki hata vermesin:
             $sinav = Sinav::latest()->first();
             $sinavId = $sinav ? $sinav->id : null;
 
@@ -248,8 +299,10 @@ class MarkVisionController extends Controller
         }
     }
 
+    // OBS'de kayıtlı sınavları listeler (Cevap Anahtarı ekranındaki dropdown için)
     public function obsSinavlariGetir(Request $request)
     {
+        // DİKKAT: header kodu süslü parantezin İÇİNDE olmalı!
         header('ngrok-skip-browser-warning: true');
         
         try {
@@ -282,6 +335,12 @@ class MarkVisionController extends Controller
                 'image' => 'required|file|image|max:10240',
             ]);
 
+            // Aktif sınavı bulma sırası:
+            // 1) İstekle birlikte doğrudan sinav_id gelmiş mi (mobil bunu kullanacak,
+            //    saveAnswerKey()'in döndürdüğü sinav_id'yi saklayıp burada geri gönderir)
+            // 2) Session'da bir aktif sınav var mı (web paneli - eskisi gibi çalışır)
+            // 3) exam_name gelmiş mi, o isme ait en güncel sınavı bul (mobil için
+            //    sinav_id'yi saklamadıysa yedek yol)
             $sinavId = $request->input('sinav_id');
 
             if (!$sinavId && $request->hasSession()) {
@@ -333,7 +392,7 @@ class MarkVisionController extends Controller
                 'exam_id'         => $sinav->id,
                 'total_questions' => $totalQuestions,
                 'answer_key'      => $answerKey,
-                'question_weights'=> $sinav->question_weights ?? [],
+                'question_weights'=> $sinav->question_weights ?? [], // YENİ EKLENDİ
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
@@ -342,6 +401,7 @@ class MarkVisionController extends Controller
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
             $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
 
+            // Windows izin sorununu tamamen ortadan kaldıran saf exec yöntemi
             $command = sprintf(
                 '"%s" "%s" "%s" "%s" "%s" 2>&1',
                 $this->pythonPath,
@@ -364,6 +424,7 @@ class MarkVisionController extends Controller
                 ], 500);
             }
 
+            // ÇÖZÜM 2: Python fazladan hata metni bassa bile sadece saf JSON kısmını cımbızla çekiyoruz
             $jsonStart = strpos($output, '{');
             $jsonEnd = strrpos($output, '}');
             
@@ -388,6 +449,7 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
+            // ÇÖZÜM 1: Öğrenci numarası boş okunursa veritabanını çökertmek yerine kullanıcıyı uyar
             $ogrenciNo = $sonuc['student_no'] ?? null;
             if (empty($ogrenciNo)) {
                 return response()->json([
@@ -455,6 +517,7 @@ class MarkVisionController extends Controller
         }
     }
 
+    // Taranan sonucu OBS'ye (exam_results tablosuna) kaydeder
     public function obsKaydet(Request $request)
     {
         try {
@@ -497,6 +560,7 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
+            // Aynı öğrenci ve sınav için kayıt varsa güncelle, yoksa yeni oluştur
             $examResult = ObsExamResult::updateOrCreate(
                 [
                     'exam_id'    => $sinav->obs_exam_id,
@@ -524,13 +588,11 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
-
     public function exportExcel()
-    {
-        return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
-    }
-
-    public function anahtarOku(Request $request)
+{
+    return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
+}
+public function anahtarOku(Request $request)
     {
         try {
             $request->validate([
@@ -547,12 +609,13 @@ class MarkVisionController extends Controller
             $uploadedFile->move($publicDir, $imageName);
             $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
 
+            // Cevap anahtarı okuma için geçici boş bir sınav şablonu verisi oluşturuyoruz
             $tempDir = storage_path('app/temp');
             if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
 
             $sinavBilgisi = [
                 'exam_id' => 0,
-                'total_questions' => 20,
+                'total_questions' => 20, // Formunuza göre soru sayısı (örn: 20, 50 vb.)
                 'answer_key' => [],
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_anahtar_' . uniqid() . '.json';
@@ -607,9 +670,11 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
         }
     }
+    // --- TELEFON UYGULAMASI İÇİN SENKRONİZASYON API METOTLARI ---
 
     public function apiSiniflariGetir(Request $request)
     {
+        // Veritabanındaki sınıfları telefona JSON olarak döndürür
         $siniflar = DB::table('siniflar')->orderBy('class_name')->get();
         return response()->json(['success' => true, 'data' => $siniflar]);
     }
@@ -621,6 +686,7 @@ class MarkVisionController extends Controller
                 'class_name' => 'required|string|max:100',
             ]);
 
+            // Telefonda eklenen sınıfı veritabanına kaydeder
             $id = DB::table('siniflar')->insertGetId([
                 'class_name' => $validated['class_name'],
                 'created_at' => now(),
@@ -639,10 +705,14 @@ class MarkVisionController extends Controller
 
     public function apiOgrencileriGetir(Request $request)
     {
-        $ogrenciler = DB::table('students')->get();
+        $ogrenciler = DB::table('panel_students')->get();
         return response()->json(['success' => true, 'data' => $ogrenciler]);
     }
 
+    // Telefonda eklenen öğrenciyi veritabanına kaydeder (apiOgrencileriGetir'in eşi).
+    // NOT: 'students' yerine 'panel_students' kullanıyoruz — 'students' tablosu
+    // OBS modülünün gerçek öğrenci kayıtlarına ait, panel/mobil verisiyle
+    // karıştırılırsa OBS verisini bozar.
     public function apiOgrenciKaydet(Request $request)
     {
         try {
@@ -652,7 +722,7 @@ class MarkVisionController extends Controller
                 'class_id'   => 'nullable|integer',
             ]);
 
-            $id = DB::table('students')->insertGetId([
+            $id = DB::table('panel_students')->insertGetId([
                 'name'       => $validated['name'],
                 'student_no' => $validated['student_no'],
                 'class_id'   => $validated['class_id'] ?? null,
@@ -669,5 +739,214 @@ class MarkVisionController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    // =====================================================================
+    // WEB PANELİ İÇİN: SINAVLAR / SINIFLAR / ÖĞRENCİLER (kullanıcıya özel)
+    // =====================================================================
+    private function panelYetkiKontrol()
+    {
+        if (!Auth::check()) {
+            return response()->json(['success' => false, 'message' => 'Oturum açmanız gerekiyor, lütfen tekrar giriş yapın.'], 401);
+        }
+        return null;
+    }
+
+    // --- SINAVLAR ---
+    public function panelSinavlariGetir()
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $sinavlar = Sinav::where('teacher_id', Auth::id())
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($s) {
+                return [
+                    'id'          => $s->id,
+                    'sinav_adi'   => $s->sinav_adi,
+                    'ders_kodu'   => $s->ders_kodu,
+                    'soru_sayisi' => is_array($s->cevap_anahtari) ? count($s->cevap_anahtari) : 0,
+                    'tarih'       => optional($s->created_at)->format('Y-m-d'),
+                ];
+            });
+
+        return response()->json(['success' => true, 'data' => $sinavlar]);
+    }
+
+    // "Seçilenleri Sil" butonu artık bunu çağırıyor — sadece isteği
+    // atan öğretmenin KENDİ sınavları silinebilir (whereIn + teacher_id
+    // filtresi birlikte), başka bir öğretmenin sınavı silinemez.
+    public function panelSinavSil(Request $request)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'integer']);
+
+        $silinen = Sinav::where('teacher_id', Auth::id())
+            ->whereIn('id', $request->input('ids'))
+            ->delete();
+
+        return response()->json(['success' => true, 'message' => $silinen . ' sınav silindi.']);
+    }
+
+    // --- SINIFLAR ---
+    public function panelSiniflariGetir()
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $siniflar = DB::table('siniflar')
+            ->where('teacher_id', Auth::id())
+            ->orderBy('class_name')
+            ->get()
+            ->map(function ($sinif) {
+                $ogrenciSayisi = DB::table('panel_students')->where('class_id', $sinif->id)->count();
+                return [
+                    'id'             => $sinif->id,
+                    'class_name'     => $sinif->class_name,
+                    'ogrenci_sayisi' => $ogrenciSayisi,
+                ];
+            });
+
+        return response()->json(['success' => true, 'data' => $siniflar]);
+    }
+
+    public function panelSinifEkle(Request $request)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        try {
+            $validated = $request->validate(['class_name' => 'required|string|max:100']);
+
+            $id = DB::table('siniflar')->insertGetId([
+                'class_name' => $validated['class_name'],
+                'teacher_id' => Auth::id(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json(['success' => true, 'id' => $id, 'message' => 'Sınıf eklendi.']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri.'], 422);
+        }
+    }
+
+    public function panelSinifGuncelle(Request $request, $id)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $sinif = DB::table('siniflar')->where('id', $id)->where('teacher_id', Auth::id())->first();
+        if (!$sinif) {
+            return response()->json(['success' => false, 'message' => 'Sınıf bulunamadı ya da bu sınıf size ait değil.'], 404);
+        }
+
+        try {
+            $validated = $request->validate(['class_name' => 'required|string|max:100']);
+
+            DB::table('siniflar')->where('id', $id)->update([
+                'class_name' => $validated['class_name'],
+                'updated_at' => now(),
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Sınıf güncellendi.']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri.'], 422);
+        }
+    }
+
+    public function panelSinifSil($id)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $sinif = DB::table('siniflar')->where('id', $id)->where('teacher_id', Auth::id())->first();
+        if (!$sinif) {
+            return response()->json(['success' => false, 'message' => 'Sınıf bulunamadı ya da bu sınıf size ait değil.'], 404);
+        }
+
+        DB::table('panel_students')->where('class_id', $id)->update(['class_id' => null]);
+        DB::table('siniflar')->where('id', $id)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Sınıf silindi.']);
+    }
+
+    // --- ÖĞRENCİLER (panel) ---
+    public function panelOgrencileriGetir()
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $ogrenciler = DB::table('panel_students')
+            ->leftJoin('siniflar', 'panel_students.class_id', '=', 'siniflar.id')
+            ->where('panel_students.teacher_id', Auth::id())
+            ->orderBy('panel_students.id', 'desc')
+            ->get(['panel_students.id', 'panel_students.student_no', 'panel_students.name', 'panel_students.class_id', 'siniflar.class_name']);
+
+        return response()->json(['success' => true, 'data' => $ogrenciler]);
+    }
+
+    public function panelOgrenciEkle(Request $request)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        try {
+            $validated = $request->validate([
+                'student_no' => 'required|string|max:50',
+                'name'       => 'required|string|max:150',
+                'class_id'   => 'nullable|integer',
+            ]);
+
+            $id = DB::table('panel_students')->insertGetId([
+                'student_no' => $validated['student_no'],
+                'name'       => $validated['name'],
+                'class_id'   => $validated['class_id'] ?? null,
+                'teacher_id' => Auth::id(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json(['success' => true, 'id' => $id, 'message' => 'Öğrenci eklendi.']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri.'], 422);
+        }
+    }
+
+    public function panelOgrenciGuncelle(Request $request, $id)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $ogrenci = DB::table('panel_students')->where('id', $id)->where('teacher_id', Auth::id())->first();
+        if (!$ogrenci) {
+            return response()->json(['success' => false, 'message' => 'Öğrenci bulunamadı ya da size ait değil.'], 404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'student_no' => 'required|string|max:50',
+                'name'       => 'required|string|max:150',
+                'class_id'   => 'nullable|integer',
+            ]);
+
+            DB::table('panel_students')->where('id', $id)->update([
+                'student_no' => $validated['student_no'],
+                'name'       => $validated['name'],
+                'class_id'   => $validated['class_id'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Öğrenci güncellendi.']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri.'], 422);
+        }
+    }
+
+    public function panelOgrenciSil($id)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $silinen = DB::table('panel_students')->where('id', $id)->where('teacher_id', Auth::id())->delete();
+
+        if (!$silinen) {
+            return response()->json(['success' => false, 'message' => 'Öğrenci bulunamadı ya da size ait değil.'], 404);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Öğrenci silindi.']);
     }
 }

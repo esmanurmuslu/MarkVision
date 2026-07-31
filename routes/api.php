@@ -34,10 +34,17 @@ Route::get('/exams/{id}/results', [ExamController::class, 'results']);
 | çağıran ve tetiklenirse 500 hatası verecek olan kırık bir '/register'
 | rotası vardı. Onun yerine gerçekten var olan registerApi() metoduna
 | bağlandı.
+|
+| NOT 2: '/login' rotası eklendi. Mobil taraf şifreyi ne olursa olsun
+| kabul ediyordu çünkü çağıracağı bir login endpoint'i hiç yoktu —
+| controller'daki login() metodu session/Auth::login() kullandığı için
+| stateless mobile'a uygun değildi, bu yüzden onun yerine yeni ve
+| stateless olan loginApi() metoduna bağlandı (bkz. controller).
 */
 Route::prefix('v1')->group(function () {
 
     Route::post('/register', [MarkVisionController::class, 'registerApi']);
+    Route::post('/login', [MarkVisionController::class, 'loginApi']);
 
     Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut']);
     Route::post('/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku']);

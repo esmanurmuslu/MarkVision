@@ -13,6 +13,7 @@
         .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: none; align-items: center; justify-content: center; }
         .modal-content { background: white; border-radius: 8px; width: 90%; max-width: 500px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden; }
         .tablo-satir:hover { background-color: #f1f5f9; }
+        @keyframes onayModalGiris { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
     </style>
 </head>
 <script>
@@ -87,12 +88,6 @@
             </div>
         </header>
 
-        <!-- BİLGİ BARI -->
-        <div class="bg-emerald-100 border-b border-emerald-200 text-emerald-800 text-xs py-2 px-6 text-center">
-            Ücretsiz hesabınızla her ay 100 kağıt okutabilirsiniz. Kalan hak: <b>100 kağıt.</b> 
-            <button class="ml-4 bg-emerald-500 text-white px-3 py-1 rounded">Sınırsız Kullanım Satın Al</button>
-        </div>
-
         <!-- İÇERİK ALANI -->
         <main class="max-w-6xl w-full mx-auto p-8 flex-1 space-y-6">
             
@@ -101,7 +96,7 @@
                 <h2 class="text-2xl font-light text-center text-slate-700">Tüm Sınavlar</h2>
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex gap-2">
-                        <button class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer">Seçilenleri Sil</button>
+                        <button onclick="sinavlariSil()" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer">Seçilenleri Sil</button>
                         <button onclick="sekmeDegistir('view-answer-sheets')" class="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded hover:bg-emerald-700 cursor-pointer">+ Yeni Sınav / Form Oluştur</button>
                     </div>
                 </div>
@@ -109,21 +104,15 @@
                     <table class="w-full text-sm text-left">
                         <thead class="bg-[#4b5563] text-white text-xs">
                             <tr>
-                                <th class="p-3 w-10 text-center"><input type="checkbox"></th>
-                                <th class="p-3 border-l border-slate-500">Sınıf</th>
+                                <th class="p-3 w-10 text-center"><input type="checkbox" id="sinav-hepsi-sec" onclick="sinavHepsiniSecToggle(this)"></th>
+                                <th class="p-3 border-l border-slate-500">Ders Kodu</th>
                                 <th class="p-3 border-l border-slate-500">Sınav Adı</th>
                                 <th class="p-3 border-l border-slate-500">Tarih</th>
                                 <th class="p-3 border-l border-slate-500">Soru Sayısı</th>
                             </tr>
                         </thead>
-                        <tbody class="text-slate-600 text-xs">
-                            <tr class="border-b border-slate-200 tablo-satir">
-                                <td class="p-3 text-center"><input type="checkbox"></td>
-                                <td class="p-3 border-l border-slate-200">Fizik Sınıfı</td>
-                                <td class="p-3 border-l border-slate-200 font-bold text-blue-600">Fizik Vize Sınavı</td>
-                                <td class="p-3 border-l border-slate-200">2026-07-28</td>
-                                <td class="p-3 border-l border-slate-200">20</td>
-                            </tr>
+                        <tbody id="sinav-tablo-govde" class="text-slate-600 text-xs">
+                            <tr><td colspan="5" class="p-6 text-center text-slate-400 italic">Henüz sınav yok. "+ Yeni Sınav / Form Oluştur" ile ekleyin.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -141,7 +130,7 @@
                             <tr><th class="p-2">Sınıf Adı</th><th class="p-2">Öğrenci Sayısı</th><th class="p-2">İşlemler</th></tr>
                         </thead>
                         <tbody id="sinif-tablo-govde">
-                            <tr><td class="p-3 border-t">A Sınıfı</td><td class="p-3 border-t">0</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>
+                            <tr><td colspan="3" class="p-6 text-center text-slate-400 italic">Henüz sınıf yok.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -159,7 +148,7 @@
                             <tr><th class="p-2">Öğrenci No</th><th class="p-2">Adı Soyadı</th><th class="p-2">Sınıfı</th><th class="p-2">İşlemler</th></tr>
                         </thead>
                         <tbody id="ogrenci-tablo-govde">
-                            <tr><td class="p-3 border-t">101</td><td class="p-3 border-t">Ahmet Yılmaz</td><td class="p-3 border-t">A Sınıfı</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>
+                            <tr><td colspan="4" class="p-6 text-center text-slate-400 italic">Henüz öğrenci yok.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -338,11 +327,87 @@
             <div class="p-6 space-y-4 text-xs">
                 <div><label class="block font-semibold mb-1">Öğrenci Numarası</label><input type="text" id="yeni_ogr_no" placeholder="Örn: 101" class="w-full border rounded p-2 text-xs bg-white"></div>
                 <div><label class="block font-semibold mb-1">Adı Soyadı</label><input type="text" id="yeni_ogr_ad" placeholder="Örn: Ahmet Yılmaz" class="w-full border rounded p-2 text-xs bg-white"></div>
-                <div><label class="block font-semibold mb-1">Sınıfı</label><input type="text" id="yeni_ogr_sinif" placeholder="Örn: A Sınıfı" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Sınıfı</label><select id="yeni_ogr_sinif" class="w-full border rounded p-2 text-xs bg-white"><option value="">— Sınıf Seçin (opsiyonel) —</option></select></div>
             </div>
             <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
                 <button type="button" onclick="modalKapat('ogrenciEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
                 <button type="button" onclick="ogrenciKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Sınıf Düzenle (YENİ EKLENDİ) -->
+    <div class="modal-bg" id="sinifDuzenleModal">
+        <div class="modal-content">
+            <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span>Sınıfı Düzenle</span>
+                <button type="button" onclick="modalKapat('sinifDuzenleModal')" class="cursor-pointer text-lg font-bold">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <input type="hidden" id="duzenle_sinif_id">
+                <div><label class="block font-semibold mb-1">Sınıf Adı</label><input type="text" id="duzenle_sinif_adi" class="w-full border rounded p-2 text-xs bg-white"></div>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-between items-center">
+                <button type="button" onclick="sinifSilOnayla()" class="px-4 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs">Sil</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="modalKapat('sinifDuzenleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
+                    <button type="button" onclick="sinifGuncelleKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Öğrenci Düzenle (YENİ EKLENDİ) -->
+    <div class="modal-bg" id="ogrenciDuzenleModal">
+        <div class="modal-content">
+            <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span>Öğrenciyi Düzenle</span>
+                <button type="button" onclick="modalKapat('ogrenciDuzenleModal')" class="cursor-pointer text-lg font-bold">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <input type="hidden" id="duzenle_ogr_id">
+                <div><label class="block font-semibold mb-1">Öğrenci Numarası</label><input type="text" id="duzenle_ogr_no" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Adı Soyadı</label><input type="text" id="duzenle_ogr_ad" class="w-full border rounded p-2 text-xs bg-white"></div>
+                <div><label class="block font-semibold mb-1">Sınıfı</label><select id="duzenle_ogr_sinif" class="w-full border rounded p-2 text-xs bg-white"><option value="">— Sınıf Seçin (opsiyonel) —</option></select></div>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-between items-center">
+                <button type="button" onclick="ogrenciSilOnayla()" class="px-4 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs">Sil</button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="modalKapat('ogrenciDuzenleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
+                    <button type="button" onclick="ogrenciGuncelleKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Onay Penceresi (Native confirm() yerine modern, şık onay kutusu) -->
+    <div class="modal-bg" id="onayModal" style="z-index: 10000;">
+        <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
+            <div class="p-6 text-center">
+                <div class="mx-auto mb-4 w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
+                    <span class="text-rose-600 text-2xl">⚠</span>
+                </div>
+                <h3 id="onayModalBaslik" class="text-base font-bold text-slate-800 mb-1">Emin misiniz?</h3>
+                <p id="onayModalMesaj" class="text-xs text-slate-500">Bu işlem geri alınamaz.</p>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-center gap-3">
+                <button type="button" onclick="onayModalSonucVer(false)" class="px-5 py-2 rounded-lg border border-slate-300 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-100 cursor-pointer transition">Vazgeç</button>
+                <button type="button" onclick="onayModalSonucVer(true)" class="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition shadow-sm">Evet, Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Bilgi/Uyarı Penceresi (Native alert() yerine modern, şık bilgi kutusu) -->
+    <div class="modal-bg" id="bilgiModal" style="z-index: 10000;">
+        <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
+            <div class="p-6 text-center">
+                <div id="bilgiModalIkonKutu" class="mx-auto mb-4 w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center">
+                    <span id="bilgiModalIkon" class="text-rose-600 text-2xl">⚠</span>
+                </div>
+                <p id="bilgiModalMesaj" class="text-sm text-slate-700 font-medium"></p>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-center">
+                <button type="button" onclick="bilgiModalKapat()" class="px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer transition shadow-sm">Tamam</button>
             </div>
         </div>
     </div>
@@ -391,6 +456,9 @@
                 mainDashboard.classList.remove('hidden');
                 mainBody.className = "bg-[#f8fafc] text-slate-800 min-h-screen transition-all duration-500";
                 document.getElementById('user-display-name').textContent = data.user.ad;
+                sinavlariDoldur();
+                siniflariDoldur();
+                ogrencileriDoldur();
             } else {
                 const err = document.getElementById('login-error');
                 err.textContent = data.message;
@@ -414,6 +482,15 @@
             // Geçmiş sekmesi seçilirse tabloyu doldur
             if(hedefId === 'view-gecmis') {
                 gecmisTablosunuDoldur();
+            }
+            if(hedefId === 'view-quizzes') {
+                sinavlariDoldur();
+            }
+            if(hedefId === 'view-classes') {
+                siniflariDoldur();
+            }
+            if(hedefId === 'view-students') {
+                ogrencileriDoldur();
             }
         }
 
@@ -442,24 +519,306 @@
         function ogrenciEkleModalAc() { document.getElementById('ogrenciEkleModal').style.display = 'flex'; }
         function modalKapat(id) { document.getElementById(id).style.display = 'none'; }
 
-        function sinifKaydet() {
-            const ad = document.getElementById('yeni_sinif_adi').value;
-            if(!ad) return alert("Sınıf adı giriniz!");
-            const tbody = document.getElementById('sinif-tablo-govde');
-            tbody.innerHTML += `<tr><td class="p-3 border-t">${ad}</td><td class="p-3 border-t">0</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>`;
-            modalKapat('sinifEkleModal');
-            document.getElementById('yeni_sinif_adi').value = "";
+        // Native window.confirm() yerine kullanılan modern onay penceresi.
+        // Kullanımı: if (!(await onayIste("Bu kayıt silinecek.", "Kaydı Sil"))) return;
+        let _onayModalCozumle = null;
+        function onayIste(mesaj, baslik = "Emin misiniz?") {
+            return new Promise((resolve) => {
+                _onayModalCozumle = resolve;
+                document.getElementById('onayModalBaslik').textContent = baslik;
+                document.getElementById('onayModalMesaj').textContent = mesaj;
+                document.getElementById('onayModal').style.display = 'flex';
+            });
+        }
+        function onayModalSonucVer(sonuc) {
+            document.getElementById('onayModal').style.display = 'none';
+            if (_onayModalCozumle) {
+                _onayModalCozumle(sonuc);
+                _onayModalCozumle = null;
+            }
         }
 
-        function ogrenciKaydet() {
+        // Native window.alert() yerine kullanılan modern bilgi/uyarı penceresi.
+        // tur: 'hata' (kırmızı, varsayılan) veya 'basari' (yeşil)
+        function bilgiGoster(mesaj, tur = 'hata') {
+            const ikonKutu = document.getElementById('bilgiModalIkonKutu');
+            const ikon = document.getElementById('bilgiModalIkon');
+            if (tur === 'basari') {
+                ikonKutu.className = 'mx-auto mb-4 w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center';
+                ikon.className = 'text-emerald-600 text-2xl';
+                ikon.textContent = '✓';
+            } else {
+                ikonKutu.className = 'mx-auto mb-4 w-14 h-14 rounded-full bg-rose-100 flex items-center justify-center';
+                ikon.className = 'text-rose-600 text-2xl';
+                ikon.textContent = '⚠';
+            }
+            document.getElementById('bilgiModalMesaj').textContent = mesaj;
+            document.getElementById('bilgiModal').style.display = 'flex';
+        }
+        function bilgiModalKapat() { document.getElementById('bilgiModal').style.display = 'none'; }
+
+        // =====================================================================
+        // SINAVLAR (YENİ EKLENDİ — önceden bu sekme tamamen sahte/sabit veriydi)
+        // =====================================================================
+        async function sinavlariDoldur() {
+            const tbody = document.getElementById('sinav-tablo-govde');
+            try {
+                const res = await fetch("{{ route('panel.sinavlar.listele') }}", { headers: { 'Accept': 'application/json' } });
+                const d = await res.json();
+                tbody.innerHTML = "";
+                if (d.success && d.data && d.data.length > 0) {
+                    d.data.forEach(s => {
+                        tbody.innerHTML += `<tr class="border-b border-slate-200 tablo-satir">
+                            <td class="p-3 text-center"><input type="checkbox" class="sinav-checkbox" value="${s.id}"></td>
+                            <td class="p-3 border-l border-slate-200">${s.ders_kodu ?? '-'}</td>
+                            <td class="p-3 border-l border-slate-200 font-bold text-blue-600">${s.sinav_adi}</td>
+                            <td class="p-3 border-l border-slate-200">${s.tarih ?? '-'}</td>
+                            <td class="p-3 border-l border-slate-200">${s.soru_sayisi}</td>
+                        </tr>`;
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">Henüz sınav yok. "+ Yeni Sınav / Form Oluştur" ile ekleyin.</td></tr>`;
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-500">Sınavlar yüklenemedi: ${err.message}</td></tr>`;
+            }
+        }
+
+        function sinavHepsiniSecToggle(kutu) {
+            document.querySelectorAll('.sinav-checkbox').forEach(cb => cb.checked = kutu.checked);
+        }
+
+        async function sinavlariSil() {
+            const secilenler = Array.from(document.querySelectorAll('.sinav-checkbox:checked')).map(cb => parseInt(cb.value));
+            if (secilenler.length === 0) { bilgiGoster("Silmek için önce en az bir sınav seçin."); return; }
+            if (!(await onayIste(secilenler.length + " sınav silinecek.", "Sınavları Sil"))) return;
+
+            try {
+                const res = await fetch("{{ route('panel.sinavlar.sil') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ ids: secilenler })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    sinavlariDoldur();
+                    document.getElementById('sinav-hepsi-sec').checked = false;
+                } else {
+                    bilgiGoster(d.message || "Silinemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        // =====================================================================
+        // SINIFLAR (YENİ EKLENDİ — önceden eklenen sınıf sayfa yenilenince kayboluyordu)
+        // =====================================================================
+        async function siniflariDoldur() {
+            const tbody = document.getElementById('sinif-tablo-govde');
+            const yeniSelect = document.getElementById('yeni_ogr_sinif');
+            const duzenleSelect = document.getElementById('duzenle_ogr_sinif');
+            try {
+                const res = await fetch("{{ route('panel.siniflar.listele') }}", { headers: { 'Accept': 'application/json' } });
+                const d = await res.json();
+                tbody.innerHTML = "";
+
+                // Öğrenci ekle/düzenle modallarındaki sınıf listelerini de tazele
+                if (yeniSelect) yeniSelect.innerHTML = '<option value="">— Sınıf Seçin (opsiyonel) —</option>';
+                if (duzenleSelect) duzenleSelect.innerHTML = '<option value="">— Sınıf Seçin (opsiyonel) —</option>';
+
+                if (d.success && d.data && d.data.length > 0) {
+                    d.data.forEach(s => {
+                        tbody.innerHTML += `<tr>
+                            <td class="p-3 border-t">${s.class_name}</td>
+                            <td class="p-3 border-t">${s.ogrenci_sayisi}</td>
+                            <td class="p-3 border-t text-blue-600 cursor-pointer" onclick="sinifDuzenleAc(${s.id}, '${s.class_name.replace(/'/g, "\\'")}')">Düzenle</td>
+                        </tr>`;
+                        if (yeniSelect) yeniSelect.innerHTML += `<option value="${s.id}">${s.class_name}</option>`;
+                        if (duzenleSelect) duzenleSelect.innerHTML += `<option value="${s.id}">${s.class_name}</option>`;
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-400 italic">Henüz sınıf yok.</td></tr>`;
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-rose-500">Sınıflar yüklenemedi: ${err.message}</td></tr>`;
+            }
+        }
+
+        async function sinifKaydet() {
+            const ad = document.getElementById('yeni_sinif_adi').value;
+            if(!ad) { bilgiGoster("Sınıf adı giriniz!"); return; }
+            try {
+                const res = await fetch("{{ route('panel.siniflar.ekle') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ class_name: ad })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('sinifEkleModal');
+                    document.getElementById('yeni_sinif_adi').value = "";
+                    siniflariDoldur();
+                } else {
+                    bilgiGoster(d.message || "Sınıf eklenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        function sinifDuzenleAc(id, ad) {
+            document.getElementById('duzenle_sinif_id').value = id;
+            document.getElementById('duzenle_sinif_adi').value = ad;
+            document.getElementById('sinifDuzenleModal').style.display = 'flex';
+        }
+
+        async function sinifGuncelleKaydet() {
+            const id = document.getElementById('duzenle_sinif_id').value;
+            const ad = document.getElementById('duzenle_sinif_adi').value;
+            if(!ad) { bilgiGoster("Sınıf adı giriniz!"); return; }
+            try {
+                const res = await fetch(`/panel/siniflar/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ class_name: ad })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('sinifDuzenleModal');
+                    siniflariDoldur();
+                } else {
+                    bilgiGoster(d.message || "Güncellenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        async function sinifSilOnayla() {
+            const id = document.getElementById('duzenle_sinif_id').value;
+            if (!(await onayIste("Bu sınıf silinecek.", "Sınıfı Sil"))) return;
+            try {
+                const res = await fetch(`/panel/siniflar/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('sinifDuzenleModal');
+                    siniflariDoldur();
+                } else {
+                    bilgiGoster(d.message || "Silinemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        // =====================================================================
+        // ÖĞRENCİLER (YENİ EKLENDİ — önceden eklenen öğrenci sayfa yenilenince kayboluyordu)
+        // =====================================================================
+        async function ogrencileriDoldur() {
+            const tbody = document.getElementById('ogrenci-tablo-govde');
+            try {
+                const res = await fetch("{{ route('panel.ogrenciler.listele') }}", { headers: { 'Accept': 'application/json' } });
+                const d = await res.json();
+                tbody.innerHTML = "";
+                if (d.success && d.data && d.data.length > 0) {
+                    d.data.forEach(o => {
+                        const adEscaped = String(o.name).replace(/'/g, "\\'");
+                        tbody.innerHTML += `<tr>
+                            <td class="p-3 border-t">${o.student_no}</td>
+                            <td class="p-3 border-t">${o.name}</td>
+                            <td class="p-3 border-t">${o.class_name ?? '-'}</td>
+                            <td class="p-3 border-t text-blue-600 cursor-pointer" onclick="ogrenciDuzenleAc(${o.id}, '${o.student_no}', '${adEscaped}', ${o.class_id ?? 'null'})">Düzenle</td>
+                        </tr>`;
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400 italic">Henüz öğrenci yok.</td></tr>`;
+                }
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-rose-500">Öğrenciler yüklenemedi: ${err.message}</td></tr>`;
+            }
+        }
+
+        async function ogrenciKaydet() {
             const no = document.getElementById('yeni_ogr_no').value;
             const ad = document.getElementById('yeni_ogr_ad').value;
             const sinif = document.getElementById('yeni_ogr_sinif').value;
-            if(!no || !ad) return alert("Bilgileri doldurunuz!");
-            const tbody = document.getElementById('ogrenci-tablo-govde');
-            tbody.innerHTML += `<tr><td class="p-3 border-t">${no}</td><td class="p-3 border-t">${ad}</td><td class="p-3 border-t">${sinif}</td><td class="p-3 border-t text-blue-600 cursor-pointer">Düzenle</td></tr>`;
-            modalKapat('ogrenciEkleModal');
-            document.getElementById('yeni_ogr_no').value = ""; document.getElementById('yeni_ogr_ad').value = "";
+            if(!no || !ad) { bilgiGoster("Bilgileri doldurunuz!"); return; }
+            try {
+                const res = await fetch("{{ route('panel.ogrenciler.ekle') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ student_no: no, name: ad, class_id: sinif || null })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('ogrenciEkleModal');
+                    document.getElementById('yeni_ogr_no').value = ""; document.getElementById('yeni_ogr_ad').value = "";
+                    ogrencileriDoldur();
+                    siniflariDoldur(); // sınıfın öğrenci sayısı değişti
+                } else {
+                    bilgiGoster(d.message || "Öğrenci eklenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        function ogrenciDuzenleAc(id, no, ad, classId) {
+            document.getElementById('duzenle_ogr_id').value = id;
+            document.getElementById('duzenle_ogr_no').value = no;
+            document.getElementById('duzenle_ogr_ad').value = ad;
+            document.getElementById('duzenle_ogr_sinif').value = classId ?? "";
+            document.getElementById('ogrenciDuzenleModal').style.display = 'flex';
+        }
+
+        async function ogrenciGuncelleKaydet() {
+            const id = document.getElementById('duzenle_ogr_id').value;
+            const no = document.getElementById('duzenle_ogr_no').value;
+            const ad = document.getElementById('duzenle_ogr_ad').value;
+            const sinif = document.getElementById('duzenle_ogr_sinif').value;
+            if(!no || !ad) { bilgiGoster("Bilgileri doldurunuz!"); return; }
+            try {
+                const res = await fetch(`/panel/ogrenciler/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ student_no: no, name: ad, class_id: sinif || null })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('ogrenciDuzenleModal');
+                    ogrencileriDoldur();
+                    siniflariDoldur();
+                } else {
+                    bilgiGoster(d.message || "Güncellenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        async function ogrenciSilOnayla() {
+            const id = document.getElementById('duzenle_ogr_id').value;
+            if (!(await onayIste("Bu öğrenci silinecek.", "Öğrenciyi Sil"))) return;
+            try {
+                const res = await fetch(`/panel/ogrenciler/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('ogrenciDuzenleModal');
+                    ogrencileriDoldur();
+                    siniflariDoldur();
+                } else {
+                    bilgiGoster(d.message || "Silinemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
         }
 
         let aktifAdim = 1;
@@ -518,7 +877,7 @@
         async function publisFormuKaydet() {
             const formAdi = document.getElementById('wiz_form_name').value || "Ozel_Optik_Form";
             let toplamSoru = sihirbazSorular.reduce((acc, curr) => acc + curr.adet, 0);
-            if (toplamSoru === 0) { alert("Lütfen en az bir soru bloğu ekleyin!"); aktifAdim = 4; sihirbazGuncelle(); return; }
+            if (toplamSoru === 0) { bilgiGoster("Lütfen en az bir soru bloğu ekleyin!"); aktifAdim = 4; sihirbazGuncelle(); return; }
 
             const hasId = document.getElementById('wiz_has_student_id').checked;
             const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 0;
@@ -542,7 +901,7 @@
                 });
                 const d = await res.json();
                 if (d.success) {
-                    alert("✓ Cevap Kağıdı Başarıyla Yayınlandı!");
+                    bilgiGoster("Cevap Kağıdı Başarıyla Yayınlandı!", 'basari');
                     sekmeDegistir('view-quizzes');
                 } else {
                     console.warn("Kayıt uyarı: " + (d.message || "Bilinmeyen yanıt"));

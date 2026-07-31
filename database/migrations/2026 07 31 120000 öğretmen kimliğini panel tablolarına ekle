@@ -1,0 +1,55 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+// Bu migration, panelde "Sınavlar / Sınıflar / Öğrenciler" sekmelerinin
+// her öğretmene ÖZEL gösterilebilmesi için gerekli. Öncesinde bu üç
+// tabloda (siniflar, students, sinavlar) hangi kaydın hangi öğretmene
+// ait olduğunu tutan bir kolon yoktu — bu yüzden panel zaten hiç
+// veritabanına bağlı değildi (tamamen sahte/HTML'e gömülü veriydi).
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('siniflar', function (Blueprint $table) {
+            if (!Schema::hasColumn('siniflar', 'teacher_id')) {
+                $table->unsignedBigInteger('teacher_id')->nullable()->after('id');
+            }
+        });
+
+        Schema::table('students', function (Blueprint $table) {
+            if (!Schema::hasColumn('students', 'teacher_id')) {
+                $table->unsignedBigInteger('teacher_id')->nullable()->after('id');
+            }
+        });
+
+        Schema::table('sinavlar', function (Blueprint $table) {
+            if (!Schema::hasColumn('sinavlar', 'teacher_id')) {
+                $table->unsignedBigInteger('teacher_id')->nullable()->after('id');
+            }
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('siniflar', function (Blueprint $table) {
+            if (Schema::hasColumn('siniflar', 'teacher_id')) {
+                $table->dropColumn('teacher_id');
+            }
+        });
+
+        Schema::table('students', function (Blueprint $table) {
+            if (Schema::hasColumn('students', 'teacher_id')) {
+                $table->dropColumn('teacher_id');
+            }
+        });
+
+        Schema::table('sinavlar', function (Blueprint $table) {
+            if (Schema::hasColumn('sinavlar', 'teacher_id')) {
+                $table->dropColumn('teacher_id');
+            }
+        });
+    }
+};
