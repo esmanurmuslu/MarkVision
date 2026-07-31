@@ -127,6 +127,55 @@ class MarkVisionController extends Controller
         }
     }
 
+    // Mobil (Flutter) uygulamadan kayıt için JSON dönen sürüm.
+    // registerStore() ile aynı validasyonu kullanır ama redirect yerine
+    // JSON döner ve Auth::login() çağırmaz (api.php rotaları stateless,
+    // session/cookie tabanlı oturum açmanın mobilde bir karşılığı yok).
+    public function registerApi(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name'     => 'required|string|max:100',
+                'surname'  => 'required|string|max:100',
+                'email'    => 'required|email|max:150|unique:teachers,email',
+                'tc_no'    => 'required|string|max:11|unique:teachers,tc_no',
+                'password' => 'required|string|min:6',
+            ], [
+                'email.unique' => 'Bu e-posta adresi zaten kayıtlı.',
+                'tc_no.unique' => 'Bu TC kimlik numarası zaten kayıtlı.',
+            ]);
+
+            $teacherId = DB::table('teachers')->insertGetId([
+                'name'       => $validated['name'],
+                'surname'    => $validated['surname'],
+                'email'      => $validated['email'],
+                'tc_no'      => $validated['tc_no'],
+                'password'   => Hash::make($validated['password']),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $teacher = DB::table('teachers')->find($teacherId);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Kayıt başarılı.',
+                'user'    => [
+                    'id'  => $teacher->id,
+                    'ad'  => $teacher->name . ' ' . $teacher->surname,
+                    'rol' => 'Öğretmen / Akademisyen',
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function saveAnswerKey(Request $request)
     {
         try {
@@ -166,7 +215,13 @@ class MarkVisionController extends Controller
             $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
             $sinav->save();
 
-            $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
+            // Web panelinde (session var) eskisi gibi "aktif sınav" session'a yazılır.
+            // Mobil/api.php üzerinden gelen isteklerde session hiç yoktur (stateless),
+            // bu durumda hasSession() false döner ve burada patlamadan geçilir.
+            // Mobil taraf aktif sınavı bu response'taki 'sinav_id' değeriyle takip eder.
+            if ($request->hasSession()) {
+                $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
+            }
 
             return response()->json([
                 'success'  => true,
@@ -187,8 +242,8 @@ class MarkVisionController extends Controller
     {
         try {
             // Session yerine son eklenen sınavı alalım ki hata vermesin:
-$sinav = Sinav::latest()->first();
-$sinavId = $sinav ? $sinav->id : null;
+            $sinav = Sinav::latest()->first();
+            $sinavId = $sinav ? $sinav->id : null;
 
             if (!$sinavId) {
                 return response()->json(['success' => false, 'message' => 'Bu oturumda henüz bir cevap anahtarı girilmedi.']);
@@ -196,7 +251,9 @@ $sinavId = $sinav ? $sinav->id : null;
 
             $sinav = Sinav::find($sinavId);
             if (!$sinav) {
-                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                if ($request->hasSession()) {
+                    $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                }
                 return response()->json(['success' => false, 'message' => 'Aktif cevap anahtarı bulunamadı.']);
             }
 
@@ -239,6 +296,7 @@ $sinavId = $sinav ? $sinav->id : null;
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
     public function optikOkut(Request $request)
     {
         try {
@@ -246,18 +304,37 @@ $sinavId = $sinav ? $sinav->id : null;
                 'image' => 'required|file|image|max:10240',
             ]);
 
-            $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+            // Aktif sınavı bulma sırası:
+            // 1) İstekle birlikte doğrudan sinav_id gelmiş mi (mobil bunu kullanacak,
+            //    saveAnswerKey()'in döndürdüğü sinav_id'yi saklayıp burada geri gönderir)
+            // 2) Session'da bir aktif sınav var mı (web paneli - eskisi gibi çalışır)
+            // 3) exam_name gelmiş mi, o isme ait en güncel sınavı bul (mobil için
+            //    sinav_id'yi saklamadıysa yedek yol)
+            $sinavId = $request->input('sinav_id');
+
+            if (!$sinavId && $request->hasSession()) {
+                $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+            }
+
+            if (!$sinavId && $request->filled('exam_name')) {
+                $sinavByName = Sinav::where('sinav_adi', $request->input('exam_name'))
+                    ->latest()
+                    ->first();
+                $sinavId = $sinavByName->id ?? null;
+            }
 
             if (!$sinavId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Önce "Cevap Anahtarı" bölümünden bu oturum için bir cevap anahtarı kaydetmelisiniz.',
+                    'message' => 'Önce "Cevap Anahtarı" bölümünden bu sınav için bir cevap anahtarı kaydetmelisiniz.',
                 ], 422);
             }
 
             $sinav = Sinav::find($sinavId);
             if (!$sinav || empty($sinav->cevap_anahtari)) {
-                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                if ($request->hasSession()) {
+                    $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
+                }
                 return response()->json([
                     'success' => false,
                     'message' => 'Aktif cevap anahtarı bulunamadı. Lütfen "Cevap Anahtarı" bölümünden yeniden kaydedin.',
@@ -567,24 +644,69 @@ public function anahtarOku(Request $request)
     public function apiSiniflariGetir(Request $request)
     {
         // Veritabanındaki sınıfları telefona JSON olarak döndürür
-        $siniflar = \DB::table('siniflar')->get(); // Tablo adın neyse (classes veya siniflar)
+        $siniflar = DB::table('siniflar')->orderBy('class_name')->get();
         return response()->json(['success' => true, 'data' => $siniflar]);
     }
 
     public function apiSinifKaydet(Request $request)
     {
-        // Telefonda eklenen sınıfı veritabanına kaydeder
-        $id = \DB::table('siniflar')->insertGetId([
-            'class_name' => $request->class_name,
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
-        return response()->json(['success' => true, 'id' => $id, 'message' => 'Sınıf eklendi']);
+        try {
+            $validated = $request->validate([
+                'class_name' => 'required|string|max:100',
+            ]);
+
+            // Telefonda eklenen sınıfı veritabanına kaydeder
+            $id = DB::table('siniflar')->insertGetId([
+                'class_name' => $validated['class_name'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            return response()->json(['success' => true, 'id' => $id, 'message' => 'Sınıf eklendi']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 
     public function apiOgrencileriGetir(Request $request)
     {
-        $ogrenciler = \DB::table('students')->get();
+        $ogrenciler = DB::table('students')->get();
         return response()->json(['success' => true, 'data' => $ogrenciler]);
+    }
+
+    // Telefonda eklenen öğrenciyi veritabanına kaydeder (apiOgrencileriGetir'in eşi).
+    // DİKKAT: 'students' tablosunun gerçek kolon adlarını (name/student_no vb.)
+    // migration dosyanızdan teyit edip gerekirse burayı güncelleyin — bu dosya
+    // bende yoktu, bu yüzden en olası isimlerle yazıldı.
+    public function apiOgrenciKaydet(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'name'       => 'required|string|max:150',
+                'student_no' => 'required|string|max:50',
+                'class_id'   => 'nullable|integer',
+            ]);
+
+            $id = DB::table('students')->insertGetId([
+                'name'       => $validated['name'],
+                'student_no' => $validated['student_no'],
+                'class_id'   => $validated['class_id'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            return response()->json(['success' => true, 'id' => $id, 'message' => 'Öğrenci eklendi']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
 }

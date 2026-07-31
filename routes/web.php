@@ -4,9 +4,6 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\MarkVisionController;
 
-// Bu rotanın ekli olduğundan emin ol:
-Route::get('/obs-sinavlari', [MarkVisionController::class, 'obsSinavlariGetir']);
-
 use App\Http\Controllers\Obs\AuthController;
 use App\Http\Controllers\Obs\ObsController;
 use App\Http\Controllers\Obs\DashboardController;
@@ -32,14 +29,21 @@ Route::post('/ajax-login', [MarkVisionController::class, 'login'])
 Route::post('/optik-okut', [MarkVisionController::class, 'optikOkut'])
     ->name('panel.okut');
 
+// Cevap anahtarı KAMERAYLA tarama (YENİ EKLENDİ)
+Route::post('/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku'])
+    ->name('panel.anahtarokut');
+
 // Geçmiş sonuçlar
 Route::get('/gecmis-sonuclar', [MarkVisionController::class, 'gecmisSonuclar'])
     ->name('panel.gecmis');
 
-// --- YENİ EKLENEN EXCEL ROTASI ---
+// --- EXCEL DOSYASI İNDİRME ROTASI ---
 Route::get('/gecmis-sonuclar/export', [MarkVisionController::class, 'exportExcel'])
     ->name('panel.export');
-// ---------------------------------
+
+Route::get('/gecmis-sonuclar/{id}', [MarkVisionController::class, 'gecmisSonucDetay'])
+    ->name('panel.gecmisdetay');
+// -----------------------------------
 
 // Cevap anahtarı
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey'])
@@ -155,3 +159,18 @@ Route::prefix('obs')
         });
 
     });
+
+/*
+|--------------------------------------------------------------------------
+| MARKVISION MOBİL MODÜLÜ (YENİ EKLENDİ — üstteki hiçbir rota değiştirilmedi)
+|--------------------------------------------------------------------------
+| Telefon görünümlü tek sayfa mobil uygulama: şık doldurma (çoklu seçim),
+| kamera ile optik okutma ve geçmiş sonuçlar burada aynı ekranda akar.
+*/
+
+Route::get('/mobil', [MarkVisionController::class, 'mobileIndex'])
+    ->name('mobil.index');
+
+// Mobilde çoklu şık (istenildiği kadar seçenek) destekli cevap anahtarı kaydı
+Route::post('/mobil/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKeyMobile'])
+    ->name('mobil.cevapkaydet');

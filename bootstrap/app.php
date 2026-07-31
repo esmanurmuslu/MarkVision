@@ -18,6 +18,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.login' => \App\Http\Middleware\CheckLogin::class,
         ]);
 
+        $middleware->trustProxies(at: '*');
+
+        $middleware->validateCsrfTokens(except: [
+            '/optik-okut',
+            '/optik-anahtar-oku',
+            '/cevap-anahtari-kaydet',
+            '/ajax-login',
+            '/obs-kaydet',
+            '/mobil/cevap-anahtari-kaydet',
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
