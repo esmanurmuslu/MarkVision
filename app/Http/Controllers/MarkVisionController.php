@@ -30,20 +30,13 @@ class MarkVisionController extends Controller
 
     public function login(Request $request)
     {
+         {
         try {
             $request->validate(['email' => 'required|email', 'password' => 'required']);
             $teacher = DB::table('teachers')->where('email', $request->email)->first();
 
             if ($teacher && Hash::check($request->password, $teacher->password)) {
-                $userModel = User::find($teacher->id);
-                if (!$userModel) {
-                    $userModel = new User();
-                    $userModel->forceFill((array) $teacher);
-                }
-                Auth::login($userModel);
-
-                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
-
+                // Mobil API isteklerinde session/auth hatası almamak için güvenli dönüş
                 return response()->json([
                     'success' => true,
                     'user' => [
@@ -52,6 +45,11 @@ class MarkVisionController extends Controller
                     ],
                 ]);
             }
+            return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
             return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
