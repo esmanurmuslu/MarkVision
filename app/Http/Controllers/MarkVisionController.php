@@ -19,7 +19,7 @@ use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
-   private string $pythonPath = 'python';
+    private string $pythonPath = 'python';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
@@ -30,7 +30,6 @@ class MarkVisionController extends Controller
 
     public function login(Request $request)
     {
-         {
         try {
             $request->validate(['email' => 'required|email', 'password' => 'required']);
             $teacher = DB::table('teachers')->where('email', $request->email)->first();
@@ -45,11 +44,6 @@ class MarkVisionController extends Controller
                     ],
                 ]);
             }
-            return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-        }
-    }
             return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
@@ -126,9 +120,6 @@ class MarkVisionController extends Controller
     }
 
     // Mobil (Flutter) uygulamadan kayıt için JSON dönen sürüm.
-    // registerStore() ile aynı validasyonu kullanır ama redirect yerine
-    // JSON döner ve Auth::login() çağırmaz (api.php rotaları stateless,
-    // session/cookie tabanlı oturum açmanın mobilde bir karşılığı yok).
     public function registerApi(Request $request)
     {
         try {
@@ -180,7 +171,6 @@ class MarkVisionController extends Controller
             $request->validate([
                 'exam_name'   => 'required|string|max:255',
                 'ders_kodu'   => 'nullable|string|max:50',
-                // Mobilde boş string veya null gelebileceği için nullable ve integer olmasını sağlıyoruz
                 'obs_exam_id' => 'nullable', 
                 'answers'     => 'required|array|min:1',
                 'answers.*'   => 'required|string|in:A,B,C,D,E',
@@ -197,26 +187,19 @@ class MarkVisionController extends Controller
                 }
             }
 
-            // OBS sınav ID boş veya "seçilmedi" ise null yapalım
             $obsExamId = $request->input('obs_exam_id');
             if (empty($obsExamId) || $obsExamId === 'null' || $obsExamId === '0') {
                 $obsExamId = null;
             }
 
-            
-            
             $sinav = new Sinav();
             $sinav->sinav_adi = $request->input('exam_name');
             $sinav->ders_kodu = $dersKodu;
             $sinav->cevap_anahtari = $request->input('answers');
             $sinav->obs_exam_id = $obsExamId;
-            $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
+            $sinav->question_weights = $request->input('question_weights');
             $sinav->save();
 
-            // Web panelinde (session var) eskisi gibi "aktif sınav" session'a yazılır.
-            // Mobil/api.php üzerinden gelen isteklerde session hiç yoktur (stateless),
-            // bu durumda hasSession() false döner ve burada patlamadan geçilir.
-            // Mobil taraf aktif sınavı bu response'taki 'sinav_id' değeriyle takip eder.
             if ($request->hasSession()) {
                 $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
             }
@@ -239,7 +222,6 @@ class MarkVisionController extends Controller
     public function getLatestAnswerKey(Request $request)
     {
         try {
-            // Session yerine son eklenen sınavı alalım ki hata vermesin:
             $sinav = Sinav::latest()->first();
             $sinavId = $sinav ? $sinav->id : null;
 
@@ -266,10 +248,8 @@ class MarkVisionController extends Controller
         }
     }
 
-    // OBS'de kayıtlı sınavları listeler (Cevap Anahtarı ekranındaki dropdown için)
     public function obsSinavlariGetir(Request $request)
     {
-        // DİKKAT: header kodu süslü parantezin İÇİNDE olmalı!
         header('ngrok-skip-browser-warning: true');
         
         try {
@@ -302,12 +282,6 @@ class MarkVisionController extends Controller
                 'image' => 'required|file|image|max:10240',
             ]);
 
-            // Aktif sınavı bulma sırası:
-            // 1) İstekle birlikte doğrudan sinav_id gelmiş mi (mobil bunu kullanacak,
-            //    saveAnswerKey()'in döndürdüğü sinav_id'yi saklayıp burada geri gönderir)
-            // 2) Session'da bir aktif sınav var mı (web paneli - eskisi gibi çalışır)
-            // 3) exam_name gelmiş mi, o isme ait en güncel sınavı bul (mobil için
-            //    sinav_id'yi saklamadıysa yedek yol)
             $sinavId = $request->input('sinav_id');
 
             if (!$sinavId && $request->hasSession()) {
@@ -359,7 +333,7 @@ class MarkVisionController extends Controller
                 'exam_id'         => $sinav->id,
                 'total_questions' => $totalQuestions,
                 'answer_key'      => $answerKey,
-                'question_weights'=> $sinav->question_weights ?? [], // YENİ EKLENDİ
+                'question_weights'=> $sinav->question_weights ?? [],
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
@@ -368,7 +342,6 @@ class MarkVisionController extends Controller
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
             $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
 
-            // Windows izin sorununu tamamen ortadan kaldıran saf exec yöntemi
             $command = sprintf(
                 '"%s" "%s" "%s" "%s" "%s" 2>&1',
                 $this->pythonPath,
@@ -391,7 +364,6 @@ class MarkVisionController extends Controller
                 ], 500);
             }
 
-            // ÇÖZÜM 2: Python fazladan hata metni bassa bile sadece saf JSON kısmını cımbızla çekiyoruz
             $jsonStart = strpos($output, '{');
             $jsonEnd = strrpos($output, '}');
             
@@ -416,7 +388,6 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
-            // ÇÖZÜM 1: Öğrenci numarası boş okunursa veritabanını çökertmek yerine kullanıcıyı uyar
             $ogrenciNo = $sonuc['student_no'] ?? null;
             if (empty($ogrenciNo)) {
                 return response()->json([
@@ -484,7 +455,6 @@ class MarkVisionController extends Controller
         }
     }
 
-    // Taranan sonucu OBS'ye (exam_results tablosuna) kaydeder
     public function obsKaydet(Request $request)
     {
         try {
@@ -527,7 +497,6 @@ class MarkVisionController extends Controller
                 ], 422);
             }
 
-            // Aynı öğrenci ve sınav için kayıt varsa güncelle, yoksa yeni oluştur
             $examResult = ObsExamResult::updateOrCreate(
                 [
                     'exam_id'    => $sinav->obs_exam_id,
@@ -555,11 +524,13 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
     public function exportExcel()
-{
-    return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
-}
-public function anahtarOku(Request $request)
+    {
+        return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
+    }
+
+    public function anahtarOku(Request $request)
     {
         try {
             $request->validate([
@@ -576,13 +547,12 @@ public function anahtarOku(Request $request)
             $uploadedFile->move($publicDir, $imageName);
             $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
 
-            // Cevap anahtarı okuma için geçici boş bir sınav şablonu verisi oluşturuyoruz
             $tempDir = storage_path('app/temp');
             if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
 
             $sinavBilgisi = [
                 'exam_id' => 0,
-                'total_questions' => 20, // Formunuza göre soru sayısı (örn: 20, 50 vb.)
+                'total_questions' => 20,
                 'answer_key' => [],
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_anahtar_' . uniqid() . '.json';
@@ -637,11 +607,9 @@ public function anahtarOku(Request $request)
             return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
         }
     }
-    // --- TELEFON UYGULAMASI İÇİN SENKRONİZASYON API METOTLARI ---
 
     public function apiSiniflariGetir(Request $request)
     {
-        // Veritabanındaki sınıfları telefona JSON olarak döndürür
         $siniflar = DB::table('siniflar')->orderBy('class_name')->get();
         return response()->json(['success' => true, 'data' => $siniflar]);
     }
@@ -653,7 +621,6 @@ public function anahtarOku(Request $request)
                 'class_name' => 'required|string|max:100',
             ]);
 
-            // Telefonda eklenen sınıfı veritabanına kaydeder
             $id = DB::table('siniflar')->insertGetId([
                 'class_name' => $validated['class_name'],
                 'created_at' => now(),
@@ -676,10 +643,6 @@ public function anahtarOku(Request $request)
         return response()->json(['success' => true, 'data' => $ogrenciler]);
     }
 
-    // Telefonda eklenen öğrenciyi veritabanına kaydeder (apiOgrencileriGetir'in eşi).
-    // DİKKAT: 'students' tablosunun gerçek kolon adlarını (name/student_no vb.)
-    // migration dosyanızdan teyit edip gerekirse burayı güncelleyin — bu dosya
-    // bende yoktu, bu yüzden en olası isimlerle yazıldı.
     public function apiOgrenciKaydet(Request $request)
     {
         try {
