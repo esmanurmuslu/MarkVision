@@ -19,9 +19,13 @@ class Sinav extends Model
         'question_weights'
     ];
 
-    // --- BU KISMI EKLE ---
+    // --- LİSTE ÇÖKMESİNİ ENGELLEYEN EKSİKSİZ CASTS BLOĞU ---
     protected $casts = [
         'cevap_anahtari' => 'array',
         'question_weights' => 'array',
+        'id' => 'integer',
+        'obs_exam_id' => 'integer',
+        'soru_sayisi' => 'integer',      // Veritabanındaki ismine göre ikisini de koyalım garanti olsun
+        'total_questions' => 'integer', 
     ];
 }

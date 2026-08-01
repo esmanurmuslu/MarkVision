@@ -14,4 +14,11 @@ class ExamResult extends Model
         'score',
         'status'
     ];
+
+    protected $casts = [
+        'score' => 'float',
+        'student_no' => 'integer',
+        'exam_id' => 'integer',
+        'id' => 'integer',         // EKSİK OLAN BUYDU
+    ];
 }

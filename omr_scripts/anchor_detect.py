@@ -12,6 +12,7 @@ Kullanim:
 import cv2
 import numpy as np
 import os
+import math
 
 def apply_clahe(img_gri):
     """
@@ -21,6 +22,7 @@ def apply_clahe(img_gri):
     # 8x8'lik karolara bölerek kontrastı sınırlar (clipLimit)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     return clahe.apply(img_gri)
+
 def kagidi_bul_ve_kirp(img):
     """
     Görüntüdeki en büyük beyaz dikdörtgeni (kağıdı) tespit eder 
@@ -66,8 +68,6 @@ def is_blurry(image, threshold=150.0):
         return True, fm
     return False, fm
 
-
-
 def _esikle(img_gri, mod="sabit"):
     """
     Iki mod destekler:
@@ -96,7 +96,6 @@ def _esikle(img_gri, mod="sabit"):
 
     _, th = cv2.threshold(img_gri, 100, 255, cv2.THRESH_BINARY_INV)
     return th
-
 
 def _kare_mi(kontur, min_alan=50, max_alan=None, min_doluluk=0.40):
     """
@@ -127,7 +126,6 @@ def _kare_mi(kontur, min_alan=50, max_alan=None, min_doluluk=0.40):
 
     return True
 
-
 def _kose_bolgesi_maskele(img_gri, oran=0.22):
     """
     Adaptif mod icin: goruntunun SADECE 4 kosesine yakin kenar seritlerini
@@ -146,7 +144,6 @@ def _kose_bolgesi_maskele(img_gri, oran=0.22):
     maskeli[h - kenar_h:h, 0:kenar_w] = img_gri[h - kenar_h:h, 0:kenar_w]
     maskeli[h - kenar_h:h, w - kenar_w:w] = img_gri[h - kenar_h:h, w - kenar_w:w]
     return maskeli
-
 
 def _anchor_adaylarini_bul(img_gri, mod="sabit"):
     """Goruntudeki tum siyah bolgelerin merkezlerini dondurur."""
@@ -183,7 +180,6 @@ def _anchor_adaylarini_bul(img_gri, mod="sabit"):
 
     return adaylar
 
-
 def _dort_koseyi_sec(adaylar, genislik, yukseklik):
     """Goruntuyu 4 ceyrege ayirip her bolgeden en buyuk alana sahip siyahligi secer."""
     orta_x, orta_y = genislik / 2.0, yukseklik / 2.0
@@ -207,7 +203,6 @@ def _dort_koseyi_sec(adaylar, genislik, yukseklik):
         return None  
 
     return bolgeler
-
 
 def _dortgen_gecerli_mi(koseler, tolerans=0.35):
     """
@@ -258,8 +253,6 @@ def _dortgen_gecerli_mi(koseler, tolerans=0.35):
 
     return True, None
 
-
-
 def kenar_koyuluk_orani(img_gri, serit_orani=0.08):
     """
     Duzlestirilmis goruntunun SOL kenar seridindeki koyu piksel sayisinin,
@@ -286,7 +279,6 @@ def kenar_koyuluk_orani(img_gri, serit_orani=0.08):
     if sag_koyu == 0:
         return float("inf")
     return sol_koyu / float(sag_koyu)
-
 
 def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, kenar_bosluk=40):
     if not os.path.exists(resim_yolu):
@@ -318,6 +310,8 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
         img = (img_orijinal[:, :, :3] * alpha_maske + beyaz_arka_plan * (1 - alpha_maske)).astype(np.uint8)
     else:
         img = img_orijinal
+
+    img = kagidi_bul_ve_kirp(img)
 
     img_gri = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -375,45 +369,139 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
         import sys
         print("Bilgi: Anchor kareler adaptif esikleme ile bulundu (dusuk kontrast/golge tespit edildi).", file=sys.stderr)
 
-    pts1 = np.float32([
-        koseler["sol_ust"]["merkez"],
-        koseler["sag_ust"]["merkez"],
-        koseler["sol_alt"]["merkez"],
-        koseler["sag_alt"]["merkez"],
-    ])
+    # === KUSURSUZ VE KIRILMAZ YÖN BULMA ALGORİTMASI ===
+    def _rol_dondur(koseler_dict, adim):
+        sira = ["sol_ust", "sag_ust", "sag_alt", "sol_alt"]
+        n = len(sira)
+        return {rol: koseler_dict[sira[(i - adim) % n]] for i, rol in enumerate(sira)}
 
-    pts2 = np.float32([
+    def _yon_skoru(img_bgr, kaynak_noktalar):
+        su = kaynak_noktalar[0]
+        sa = kaynak_noktalar[1]
+        al = kaynak_noktalar[3]
+        
+        # 1. GEOMETRİK KONTROL (Yan Yatma Engeli)
+        genislik = math.hypot(su[0] - sa[0], su[1] - sa[1])
+        yukseklik = math.hypot(su[0] - al[0], su[1] - al[1])
+        
+        if genislik > yukseklik:
+            return -float('inf') 
+            
+        # 2. SOL-SAĞ KONTROLÜ (Ters Dönme Engeli)
+        gri_test = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+        hh, ww = gri_test.shape[:2]
+        
+        sol_serit = gri_test[int(hh*0.1):int(hh*0.9), 0:int(ww*0.08)]
+        sag_serit = gri_test[int(hh*0.1):int(hh*0.9), int(ww*0.92):ww]
+        
+        sol_koyu = np.sum(sol_serit < 150)
+        sag_koyu = np.sum(sag_serit < 150)
+        
+        return sol_koyu - sag_koyu
+
+    en_iyi_skor = -float('inf')
+    en_iyi_warped = None
+    en_iyi_gri = None
+
+    hedef_noktalar = np.float32([
         [kenar_bosluk, kenar_bosluk],
         [cikti_genislik - kenar_bosluk, kenar_bosluk],
-        [kenar_bosluk, cikti_yukseklik - kenar_bosluk],
         [cikti_genislik - kenar_bosluk, cikti_yukseklik - kenar_bosluk],
+        [kenar_bosluk, cikti_yukseklik - kenar_bosluk]
     ])
 
-    
-    matris = cv2.getPerspectiveTransform(pts1, pts2)
-    duz_renkli = cv2.warpPerspective(img, matris, (cikti_genislik, cikti_yukseklik))
-    duz_gri = cv2.cvtColor(duz_renkli, cv2.COLOR_BGR2GRAY)
+    for adim in range(4):
+        deneme_koseler = _rol_dondur(koseler, adim)
+        kaynak_noktalar = np.float32([
+            deneme_koseler["sol_ust"]["merkez"],
+            deneme_koseler["sag_ust"]["merkez"],
+            deneme_koseler["sag_alt"]["merkez"],
+            deneme_koseler["sol_alt"]["merkez"]
+        ])
+        
+        M = cv2.getPerspectiveTransform(kaynak_noktalar, hedef_noktalar)
+        warped = cv2.warpPerspective(img, M, (cikti_genislik, cikti_yukseklik))
+        
+        skor = _yon_skoru(warped, kaynak_noktalar)
+        if skor > en_iyi_skor:
+            en_iyi_skor = skor
+            en_iyi_warped = warped
+            en_iyi_gri = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
 
-    return duz_gri, duz_renkli
+    return en_iyi_gri, en_iyi_warped
 
-
+# ======================================================================
+# TEST MOTORU: omr_form_geometry.py dosyanizla %100 UYUMLU calisan,
+# hicbir seyi eksiltmeyen test blogu.
+# ======================================================================
 if __name__ == "__main__":
+    import sys
     import glob
+    try:
+        from omr_form_geometry import form_planla, mm_to_px
+    except ImportError:
+        print("HATA: Lutfen 'omr_form_geometry.py' dosyasini bu script ile ayni klasore koyun.")
+        sys.exit(1)
 
-    resimler = glob.glob("*.jpg") + glob.glob("*.jpeg") + glob.glob("*.png")
-    if not resimler:
-        print("Klasörde resim bulunamadı.")
+    # Arguman verilerek calistirilirsa onu kullanir, yoksa klasordeki jpg'yi bulur
+    if len(sys.argv) > 1 and sys.argv[1].endswith(('.jpg', '.jpeg', '.png')):
+        secilen = sys.argv[1]
     else:
-        secilen = resimler[0]
-        print(f"Test ediliyor: {secilen}")
+        resimler = glob.glob("*.jpg") + glob.glob("*.jpeg") + glob.glob("*.png")
+        if not resimler:
+            print("Klasörde resim bulunamadı.")
+            sys.exit()
+        secilen = "test.jpeg" if "test.jpeg" in resimler else resimler[0]
         
-        # belgeyi_duzlestir artık içinde bulanıklık kontrolü de yapıyor!
-        gri, renkli = belgeyi_duzlestir(secilen)
-        
-        if renkli is not None:
-            print("Başarılı: Kağıt düzleştirildi ve net!")
-            cv2.imshow("Duzlestirilmis Kagit", renkli)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-        else:
-            print("Başarısız: İşlem durduruldu (Görüntü bulanık veya referanslar eksik).")
+    print(f"Test ediliyor: {secilen}")
+    
+    gri, renkli = belgeyi_duzlestir(secilen)
+    
+    if renkli is None:
+        print("Başarısız: Kağıt algılanamadı veya bulanık.")
+        sys.exit()
+
+    print("Kağıt düzleştirildi. omr_form_geometry.py'den GERÇEK koordinatlar alınıyor...")
+
+    # Form algilama zekasi (Dosya adina gore form turunu anlar veya arguman alir)
+    toplamSoru = 100
+    siklar = "ABCDE"
+    haneSayisi = 9
+
+    if "15" in secilen:
+        toplamSoru = 15
+        siklar = "ABCDEFGH"
+    elif "40" in secilen:
+        toplamSoru = 40
+        siklar = "ABC"
+
+    # Eger terminalden "python anchor_detect.py test.jpeg 40 ABC" yazildiysa ayarlari ezer
+    if len(sys.argv) >= 3:
+        toplamSoru = int(sys.argv[2])
+    if len(sys.argv) >= 4:
+        siklar = sys.argv[3].upper()
+
+    print(f"Secilen Format: {toplamSoru} soru, {len(siklar)} sik ({siklar}), {haneSayisi} haneli ogrenci no.")
+
+    try:
+        plan = form_planla(toplamSoru, siklar, haneSayisi)
+    except Exception as e:
+        print(f"Geometri Plani Hatasi: {e}")
+        sys.exit()
+
+    # Öğrenci Numarasını Çiz (Kırmızı)
+    for basamak_adi, rakamlar in plan["ogrenci_no"]["basamaklar"].items():
+        for rakam_str, (x_mm, y_mm) in rakamlar.items():
+            px, py = mm_to_px(x_mm, y_mm)
+            cv2.circle(renkli, (px, py), 8, (0, 0, 255), 2)
+
+    # Soruları Çiz (Mavi)
+    for soru in plan["sorular"]["sorular"]:
+        for k, v in soru.items():
+            if k != "soru_no":
+                px, py = mm_to_px(v[0], v[1])
+                cv2.circle(renkli, (px, py), 8, (255, 0, 0), 2)
+
+    cikti_adi = "MUKEMMEL_SONUC.jpeg"
+    cv2.imwrite(cikti_adi, renkli)
+    print(f"\n>>> HARİKA! Test tamamlandı. Lütfen '{cikti_adi}' dosyasını açıp piksellerin NASIL CUK OTURDUĞUNU görün! <<<")

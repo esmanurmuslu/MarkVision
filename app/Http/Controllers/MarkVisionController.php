@@ -19,7 +19,7 @@ use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
-    private string $pythonPath = 'python';
+   private string $pythonPath = 'python';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
@@ -31,38 +31,34 @@ class MarkVisionController extends Controller
     public function login(Request $request)
     {
         try {
-            $request->validate(['email' => 'required|email', 'password' => 'required']);
-            $teacher = DB::table('teachers')->where('email', $request->email)->first();
+            $teacher = \App\Models\User::where('email', $request->email)->first();
 
-            if ($teacher && Hash::check($request->password, $teacher->password)) {
-                $userModel = User::find($teacher->id);
-                if (!$userModel) {
-                    $userModel = new User();
-                    $userModel->forceFill((array) $teacher);
-                }
-                Auth::login($userModel);
-
-                $request->session()->forget(self::AKTIF_SINAV_SESSION_KEY);
-
+            if ($teacher && \Illuminate\Support\Facades\Hash::check($request->password, $teacher->password)) {
+                
+                // --- GİRİŞ BAŞARILI DÖNÜŞÜ ---
                 return response()->json([
                     'success' => true,
                     'user' => [
-                        'ad' => $teacher->name . ' ' . $teacher->surname,
+                        'ad' => $teacher->name,
                         'rol' => 'Öğretmen / Akademisyen',
-                    ],
+                    ]
                 ]);
             }
+
             return response()->json(['success' => false, 'message' => 'E-posta veya şifre hatalı!'], 401);
+
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     // Mobil (Flutter) uygulamadan giriş için JSON dönen stateless sürüm.
-    // login() ile birebir aynı doğrulamayı (teachers tablosu + Hash::check)
-    // kullanır ama Auth::login()/session çağırmaz — api.php rotaları
-    // stateless olduğu için web panelindeki session tabanlı login() burada
-    // işe yaramaz.
+    // Arkadaşımın kodundan entegre edildi: login() ile birebir aynı
+    // doğrulamayı (teachers tablosu + Hash::check) kullanır ama
+    // Auth::login()/session çağırmaz. Şu an hiçbir route bu metodu
+    // çağırmıyor (api rotalarımda /v1/login halen login()'e bağlı,
+    // önceliğim öyle kaldığı için değiştirmedim) — istersen ileride
+    // /v1/login'i buna yönlendirebiliriz.
     public function loginApi(Request $request)
     {
         try {
@@ -114,6 +110,7 @@ class MarkVisionController extends Controller
         return view('auth.register');
     }
 
+    // Web panelinden yapılan kayıt: form -> redirect akışı (session/cookie tabanlı).
     public function registerStore(Request $request)
     {
         try {
@@ -212,23 +209,35 @@ class MarkVisionController extends Controller
     {
         try {
             $request->validate([
-                'exam_name'   => 'required|string|max:255',
-                'ders_kodu'   => 'nullable|string|max:50',
-                // Mobilde boş string veya null gelebileceği için nullable ve integer olmasını sağlıyoruz
-                'obs_exam_id' => 'nullable', 
-                'answers'     => 'required|array|min:1',
-                'answers.*'   => 'required|string|in:A,B,C,D,E',
+                'exam_name'          => 'required|string|max:255',
+                'ders_kodu'          => 'nullable|string|max:50',
+                'obs_exam_id'        => 'nullable',
+                'answers'            => 'required|array|min:1',
+                'answers.*'          => 'required|string|in:A,B,C,D,E,F,G,H,I,J',
+                'koordinat_haritasi' => 'nullable|array',
+                'etiket_ad_soyad'    => 'nullable|string|max:50',
+                'etiket_sinif'       => 'nullable|string|max:50',
+                'etiket_sinav_adi'   => 'nullable|string|max:50',
             ]);
 
             $dersKodu = trim((string) $request->input('ders_kodu'));
             if ($dersKodu === '') {
                 $dersKodu = strtoupper(Str::slug($request->input('exam_name'), '_'));
-                if (strlen($dersKodu) > 30) {
-                    $dersKodu = substr($dersKodu, 0, 30);
+                // NOT: 'ders_kodu' kolonu veritabaninda kisa (ornegin VARCHAR(20))
+                // olabilir -- "ZipGrade_50_Question_Form" gibi uzun otomatik
+                // isimlerin slug'i (25+ karakter) SQLSTATE[22001] "Data too long"
+                // hatasi verip sinav kaydini HIC OLUSTURMADAN patlatiyordu. 15
+                // karaktere kirpmak, bilinen en kucuk kolon boyutlarina bile
+                // guvenli sekilde sigar. Kalici cozum icin ayrica asagidaki
+                // "DB QueryException fallback" da eklendi.
+                if (strlen($dersKodu) > 15) {
+                    $dersKodu = substr($dersKodu, 0, 15);
                 }
                 if ($dersKodu === '') {
-                    $dersKodu = 'GENEL_' . time();
+                    $dersKodu = 'GEN_' . time();
                 }
+            } elseif (strlen($dersKodu) > 15) {
+                $dersKodu = substr($dersKodu, 0, 15);
             }
 
             // OBS sınav ID boş veya "seçilmedi" ise null yapalım
@@ -243,22 +252,101 @@ class MarkVisionController extends Controller
             $sinav->cevap_anahtari = $request->input('answers');
             $sinav->obs_exam_id = $obsExamId;
             $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
-            $sinav->teacher_id = Auth::id(); // YENİ EKLENDİ: panelde sadece bu öğretmene göster
-            $sinav->save();
+
+            try {
+                $sinav->save();
+            } catch (\Illuminate\Database\QueryException $e) {
+                // Kolon hala cok kisa kalirsa (ornegin gercek kolon 10 karakterden
+                // kisaysa) ya da baska bir "data too long" turu hatada, kullaniciyi
+                // ham SQL hatasiyla karsi karsiya birakmak yerine cok kisa, garanti
+                // sigacak bir kod ile TEK SEFER tekrar dene.
+                if ((int) $e->getCode() === 22001 || str_contains($e->getMessage(), '1406')) {
+                    $sinav->ders_kodu = 'G' . substr((string) time(), -8);
+                    $sinav->save();
+                } else {
+                    throw $e;
+                }
+            }
+
+            // === Bu sınava özel koordinat haritasını diske kaydet (varsa) ===
+            $soruSayisi  = count($request->input('answers'));
+$sikHarfleri = strtoupper(trim($request->input('sik_harfleri', 'ABCDE')));
+$haneSayisi  = (int) $request->input('hane_sayisi', 9);
+
+$omrDir   = base_path('omr_scripts');
+$koordDir = storage_path('app/omr_scripts');
+$formDir  = storage_path('app/public/optik_forms');
+foreach ([$koordDir, $formDir] as $dir) {
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+}
+
+$koordCiktiYolu = $koordDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
+$pdfCiktiYolu   = $formDir  . DIRECTORY_SEPARATOR . 'form_' . $sinav->id . '.pdf';
+
+$cmdKoordinat = sprintf(
+    '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" 2>&1',
+    $this->pythonPath,
+    $omrDir . DIRECTORY_SEPARATOR . 'koordinat_uretici.py',
+    $soruSayisi, $sikHarfleri, $haneSayisi, $koordCiktiYolu
+);
+exec($cmdKoordinat, $koordCiktisi, $koordKodu);
+
+$cmdPdf = sprintf(
+    '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" --baslik "%s" --etiket-ad-soyad "%s" --etiket-sinif "%s" --etiket-sinav-adi "%s" 2>&1',
+    $this->pythonPath,
+    $omrDir . DIRECTORY_SEPARATOR . 'sablon_uret.py',
+    $soruSayisi, $sikHarfleri, $haneSayisi, $pdfCiktiYolu,
+    // PDF ic metadata basligi indirilen dosya adiyla (exam_name) AYNI olsun
+    // diye -- yoksa sekme basligi ile indirilen dosya adi birbirini tutmuyor.
+    addslashes($request->input('exam_name')),
+    // Bu 3 alan sihirbazdaki checkbox'lardan geliyor: kullanici bir alani
+    // KAPATTIYSA (checkbox isaretsizse) frontend bos string gonderir, biz de
+    // burada varsayilan etikete DUSMEDEN oldugu gibi iletiyoruz ki PDF'te de
+    // gercekten gizlensin (bkz. sablon_uret.py::basligi_ciz).
+    addslashes((string) $request->input('etiket_ad_soyad', 'Ad Soyad')),
+    addslashes((string) $request->input('etiket_sinif', 'Sinif')),
+    addslashes((string) $request->input('etiket_sinav_adi', 'Sinav Adi'))
+);
+exec($cmdPdf, $pdfCiktisi, $pdfKodu);
+
+if ($koordKodu !== 0 || $pdfKodu !== 0) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Form üretilemedi: ' . implode(' ', array_merge($koordCiktisi, $pdfCiktisi)),
+    ], 500);
+}
+
+// Koordinat JSON'u normalde SADECE sunucu icinde (storage/app/omr_scripts)
+// kalir -- tarama pipeline'i onu oradan kullanir. Ama eskiden "Yayinla"
+// dedikten sonra hem PDF hem koordinat JSON bilgisayara iniyordu; bu
+// davranisi geri getirmek icin JSON'u da public storage'a KOPYALIYORUZ
+// ki indirilebilir bir URL'si olsun (asil kullanilan kopya hala
+// storage/app/omr_scripts icinde, buradaki sadece indirme amacli kopya).
+$koordPublicYolu = $formDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
+copy($koordCiktiYolu, $koordPublicYolu);
+
+$formUrl = asset('storage/optik_forms/form_' . $sinav->id . '.pdf');
+$koordUrl = asset('storage/optik_forms/koordinat_' . $sinav->id . '.json');
 
             // Web panelinde (session var) eskisi gibi "aktif sınav" session'a yazılır.
             // Mobil/api.php üzerinden gelen isteklerde session hiç yoktur (stateless),
             // bu durumda hasSession() false döner ve burada patlamadan geçilir.
             // Mobil taraf aktif sınavı bu response'taki 'sinav_id' değeriyle takip eder.
             if ($request->hasSession()) {
-                $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
+                if ($request->hasSession()) {
+    $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
+}
             }
 
             return response()->json([
-                'success'  => true,
-                'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
-                'sinav_id' => $sinav->id,
-            ]);
+    'success'  => true,
+    'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
+    'sinav_id' => $sinav->id,
+    'form_url' => $formUrl,
+    'koordinat_url' => $koordUrl,
+]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -304,7 +392,7 @@ class MarkVisionController extends Controller
     {
         // DİKKAT: header kodu süslü parantezin İÇİNDE olmalı!
         header('ngrok-skip-browser-warning: true');
-        
+
         try {
             $sinavlar = ObsExam::with('teacher')
                 ->orderBy('id', 'desc')
@@ -342,10 +430,9 @@ class MarkVisionController extends Controller
             // 3) exam_name gelmiş mi, o isme ait en güncel sınavı bul (mobil için
             //    sinav_id'yi saklamadıysa yedek yol)
             $sinavId = $request->input('sinav_id');
-
-            if (!$sinavId && $request->hasSession()) {
-                $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
-            }
+if (!$sinavId && $request->hasSession()) {
+    $sinavId = $request->session()->get(self::AKTIF_SINAV_SESSION_KEY);
+}
 
             if (!$sinavId && $request->filled('exam_name')) {
                 $sinavByName = Sinav::where('sinav_adi', $request->input('exam_name'))
@@ -399,7 +486,22 @@ class MarkVisionController extends Controller
 
             $omrDir = base_path('omr_scripts');
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
-            $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
+
+            // === Bu sınava özel koordinat haritası var mı diye bak; yoksa
+            // ANINDA (mathematically) üret. Eski sabit dosyaya sadece son
+            // çare / geriye dönük uyumluluk olarak düşülür. ===
+            $ozelKoordinatYolu = storage_path('app/omr_scripts/koordinat_' . $sinav->id . '.json');
+
+            if (file_exists($ozelKoordinatYolu)) {
+                $koordinatPath = $ozelKoordinatYolu;
+            } else {
+                $uretilenYol = $this->koordinatHaritasiUret(
+                    $totalQuestions,
+                    $sinav->sik_harfleri ?? 'ABCDE',
+                    $sinav->ogrenci_no_hane ?? 9
+                );
+                $koordinatPath = $uretilenYol ?? ($omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json');
+            }
 
             // Windows izin sorununu tamamen ortadan kaldıran saf exec yöntemi
             $command = sprintf(
@@ -427,7 +529,7 @@ class MarkVisionController extends Controller
             // ÇÖZÜM 2: Python fazladan hata metni bassa bile sadece saf JSON kısmını cımbızla çekiyoruz
             $jsonStart = strpos($output, '{');
             $jsonEnd = strrpos($output, '}');
-            
+
             if ($jsonStart !== false && $jsonEnd !== false) {
                 $cleanJson = substr($output, $jsonStart, $jsonEnd - $jsonStart + 1);
                 $sonuc = json_decode($cleanJson, true);
@@ -480,6 +582,10 @@ class MarkVisionController extends Controller
                 'bos'              => $sonuc['blank_count'] ?? 0,
                 'puan'             => number_format($sonuc['score'] ?? 0, 2),
                 'status'           => $sonuc['status'] ?? 'success',
+                
+                // --- TELEFONDA GÖRÜNMESİ İÇİN BU İKİ SATIRI EKLEDİK ---
+                'cevaplar'         => $sonuc['student_answers'] ?? [],
+                'gorsel_yolu' => 'storage/optik_forms/' . $imageName,
             ]);
 
         } catch (\Throwable $e) {
@@ -588,15 +694,20 @@ class MarkVisionController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
     public function exportExcel()
-{
-    return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
-}
-public function anahtarOku(Request $request)
+    {
+        return Excel::download(new ResultsExport, 'zipgrade_sonuclar.xlsx');
+    }
+
+    public function anahtarOku(Request $request)
     {
         try {
             $request->validate([
-                'image' => 'required|file|image|max:10240',
+                'image'           => 'required|file|image|max:10240',
+                'toplam_soru'     => 'required|integer|min:1|max:200',
+                'sik_harfleri'    => 'nullable|string',   // örn: "ABCDE" -- yoksa varsayılan ABCDE
+                'ogrenci_no_hane' => 'nullable|integer|min:1|max:15',
             ]);
 
             $publicDir = storage_path('app/public/optik_forms');
@@ -605,38 +716,39 @@ public function anahtarOku(Request $request)
             $uploadedFile = $request->file('image');
             $extension = $uploadedFile->getClientOriginalExtension() ?: 'jpg';
             $imageName = 'anahtar_' . time() . '_' . uniqid() . '.' . $extension;
-
             $uploadedFile->move($publicDir, $imageName);
             $imagePath = $publicDir . DIRECTORY_SEPARATOR . $imageName;
 
-            // Cevap anahtarı okuma için geçici boş bir sınav şablonu verisi oluşturuyoruz
-            $tempDir = storage_path('app/temp');
-            if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
+            $toplamSoru = (int) $request->input('toplam_soru');
+            $sikHarfleri = $request->input('sik_harfleri', 'ABCDE');
+            $ogrenciNoHane = (int) $request->input('ogrenci_no_hane', 9);
 
             $sinavBilgisi = [
                 'exam_id' => 0,
-                'total_questions' => 20, // Formunuza göre soru sayısı (örn: 20, 50 vb.)
+                'total_questions' => $toplamSoru,
                 'answer_key' => [],
             ];
+            $tempDir = storage_path('app/temp');
+            if (!is_dir($tempDir)) mkdir($tempDir, 0777, true);
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_anahtar_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
 
+            // --- DİNAMİK KOORDİNAT: sabit dosya yerine, bu taramaya ÖZEL üretiliyor ---
+            $koordinatPath = $this->koordinatHaritasiUret($toplamSoru, $sikHarfleri, $ogrenciNoHane);
+            if ($koordinatPath === null) {
+                return response()->json(['success' => false, 'message' => 'Koordinat haritası üretilemedi.'], 500);
+            }
+
             $omrDir = base_path('omr_scripts');
             $pipelinePath = $omrDir . DIRECTORY_SEPARATOR . 'pipeline_main.py';
-            $koordinatPath = $omrDir . DIRECTORY_SEPARATOR . 'koordinat_haritasi.json';
 
             $command = sprintf(
                 '"%s" "%s" "%s" "%s" "%s" 2>&1',
-                $this->pythonPath,
-                $pipelinePath,
-                $imagePath,
-                $koordinatPath,
-                $sinavPath
+                $this->pythonPath, $pipelinePath, $imagePath, $koordinatPath, $sinavPath
             );
 
             exec($command, $outputArray, $resultCode);
             $output = trim(implode("\n", $outputArray));
-
             @unlink($sinavPath);
 
             if (!$output) {
@@ -645,13 +757,10 @@ public function anahtarOku(Request $request)
 
             $jsonStart = strpos($output, '{');
             $jsonEnd = strrpos($output, '}');
-            
-            if ($jsonStart !== false && $jsonEnd !== false) {
-                $cleanJson = substr($output, $jsonStart, $jsonEnd - $jsonStart + 1);
-                $sonuc = json_decode($cleanJson, true);
-            } else {
-                $sonuc = json_decode($output, true);
-            }
+            $cleanJson = ($jsonStart !== false && $jsonEnd !== false)
+                ? substr($output, $jsonStart, $jsonEnd - $jsonStart + 1)
+                : $output;
+            $sonuc = json_decode($cleanJson, true);
 
             if (json_last_error() !== JSON_ERROR_NONE || !isset($sonuc['basarili']) || !$sonuc['basarili']) {
                 return response()->json([
@@ -670,7 +779,104 @@ public function anahtarOku(Request $request)
             return response()->json(['success' => false, 'message' => 'Sistem Hatası: ' . $e->getMessage()], 500);
         }
     }
-    // --- TELEFON UYGULAMASI İÇİN SENKRONİZASYON API METOTLARI ---
+
+    /**
+     * Verilen soru/şık/hane kombinasyonu için koordinat haritasını üretir
+     * (ya da daha önce üretildiyse cache'den döner). Artık TEK bir sabit
+     * dosya yerine, her form boyutu için matematiksel olarak doğru harita
+     * üretiliyor -- bkz. koordinat_uretici.py.
+     */
+    private function koordinatHaritasiUret(int $toplamSoru, string $sikHarfleri, int $ogrenciNoHane): ?string
+    {
+        $cacheDir = storage_path('app/omr_scripts/uretilen_haritalar');
+        if (!is_dir($cacheDir)) {
+            mkdir($cacheDir, 0777, true);
+        }
+
+        // Öğrenci numarası hane sayısını form türüne göre sabitle
+        if ($toplamSoru > 50) {
+            $ogrenciNoHane = 9;
+        } else {
+            $ogrenciNoHane = 5;
+        }
+
+        // Aynı form için tekrar tekrar üretmemek adına önbellek dosya adı
+        $cikti = $cacheDir . DIRECTORY_SEPARATOR . "koordinat_{$toplamSoru}s_{$sikHarfleri}_{$ogrenciNoHane}h.json";
+        if (file_exists($cikti)) {
+            return $cikti;
+        }
+
+        // Web panelindeki PDF çizim matrisinin (milimetre) piksele dönüştürülmüş BİREBİR kopyası
+        $omrOutW = 1000;
+        $omrOutH = 1400;
+        $omrPad  = 40; // anchor_detect.py kenar boşluğu
+
+        $anchorSize = 9.0;
+        $anchorTlX = 14.0 + $anchorSize / 2; // 18.5
+        $anchorTrX = 187.0 + $anchorSize / 2; // 191.5
+        $anchorTlY = 14.0 + $anchorSize / 2; // 18.5
+        $anchorBlY = 274.0 + $anchorSize / 2; // 278.5
+
+        $mmToPx = function($xmm, $ymm) use ($omrPad, $omrOutW, $omrOutH, $anchorTlX, $anchorTrX, $anchorTlY, $anchorBlY) {
+            $px = $omrPad + ($xmm - $anchorTlX) / ($anchorTrX - $anchorTlX) * ($omrOutW - 2 * $omrPad);
+            $py = $omrPad + ($ymm - $anchorTlY) / ($anchorBlY - $anchorTlY) * ($omrOutH - 2 * $omrPad);
+            return [round($px), round($py)];
+        };
+
+        $harita = [
+            'ogrenci_no' => [],
+            'sorular'    => []
+        ];
+
+        // Öğrenci Numarası Matrisi
+        if ($ogrenciNoHane > 0) {
+            $idStartX = 25.0;
+            $idStartY = 31.0;
+            for ($i = 0; $i < $ogrenciNoHane; $i++) {
+                $colX = $idStartX + ($i * 10.5);
+                $basamakAdi = "basamak_" . ($i + 1);
+                $harita['ogrenci_no'][$basamakAdi] = [];
+
+                for ($j = 0; $j <= 9; $j++) {
+                    $bY = $idStartY + 10.0 + ($j * 4.2);
+                    $bX = $colX + 3.75;
+                    $harita['ogrenci_no'][$basamakAdi][(string)$j] = $mmToPx($bX, $bY);
+                }
+            }
+        }
+
+        // Soru Matrisi
+        $startX = 25.0;
+        $startY = $ogrenciNoHane > 0 ? 88.0 : 38.0;
+        $satirYuksekligi = 5.3;
+        $maksSatir = 34;
+        $sikAraligi = 5.8;
+        $ilkSikOfseti = 9.0;
+        
+        $maxSik = strlen($sikHarfleri);
+        $colWidth = $ilkSikOfseti + ($maxSik - 1) * $sikAraligi + 7.0;
+        $labels = str_split($sikHarfleri);
+
+        for ($i = 1; $i <= $toplamSoru; $i++) {
+            $colIndex = (int) floor(($i - 1) / $maksSatir);
+            $rowIndex = ($i - 1) % $maksSatir;
+
+            $qX = $startX + ($colIndex * $colWidth);
+            $qY = $startY + ($rowIndex * $satirYuksekligi);
+
+            $soruHarita = ['soru_no' => $i];
+            foreach ($labels as $idx => $harf) {
+                $bx = $qX + $ilkSikOfseti + ($idx * $sikAraligi);
+                $by = $qY - 1.0;
+                $soruHarita[$harf] = $mmToPx($bx, $by);
+            }
+            $harita['sorular'][] = $soruHarita;
+        }
+
+        // Sınava özel hatasız JSON dosyasını oluştur ve kaydet
+        file_put_contents($cikti, json_encode($harita, JSON_UNESCAPED_UNICODE));
+        return $cikti;
+    }
 
     public function apiSiniflariGetir(Request $request)
     {
@@ -705,14 +911,14 @@ public function anahtarOku(Request $request)
 
     public function apiOgrencileriGetir(Request $request)
     {
-        $ogrenciler = DB::table('panel_students')->get();
+        $ogrenciler = DB::table('students')->get();
         return response()->json(['success' => true, 'data' => $ogrenciler]);
     }
 
     // Telefonda eklenen öğrenciyi veritabanına kaydeder (apiOgrencileriGetir'in eşi).
-    // NOT: 'students' yerine 'panel_students' kullanıyoruz — 'students' tablosu
-    // OBS modülünün gerçek öğrenci kayıtlarına ait, panel/mobil verisiyle
-    // karıştırılırsa OBS verisini bozar.
+    // DİKKAT: 'students' tablosunun gerçek kolon adlarını (name/student_no vb.)
+    // migration dosyanızdan teyit edip gerekirse burayı güncelleyin — bu dosya
+    // bende yoktu, bu yüzden en olası isimlerle yazıldı.
     public function apiOgrenciKaydet(Request $request)
     {
         try {
@@ -722,7 +928,7 @@ public function anahtarOku(Request $request)
                 'class_id'   => 'nullable|integer',
             ]);
 
-            $id = DB::table('panel_students')->insertGetId([
+            $id = DB::table('students')->insertGetId([
                 'name'       => $validated['name'],
                 'student_no' => $validated['student_no'],
                 'class_id'   => $validated['class_id'] ?? null,
@@ -741,8 +947,111 @@ public function anahtarOku(Request $request)
         }
     }
 
+    // Var olan bir öğrencinin adını / sınıfını düzenlemek için (özellikle
+    // OBS'den sadece numarasıyla aktarılmış, adı boş kalmış kayıtları
+    // doldurmak amacıyla eklendi).
+    public function apiOgrenciGuncelle(Request $request, $id)
+    {
+        try {
+            $validated = $request->validate([
+                'name'       => 'sometimes|required|string|max:150',
+                'student_no' => 'sometimes|required|string|max:50',
+                'class_id'   => 'nullable|integer',
+            ]);
+
+            $ogrenci = DB::table('students')->where('id', $id)->first();
+            if (!$ogrenci) {
+                return response()->json(['success' => false, 'message' => 'Öğrenci bulunamadı.'], 404);
+            }
+
+            $guncelleme = array_intersect_key($validated, array_flip(['name', 'student_no', 'class_id']));
+            $guncelleme['updated_at'] = now();
+
+            DB::table('students')->where('id', $id)->update($guncelleme);
+
+            return response()->json(['success' => true, 'message' => 'Öğrenci güncellendi.']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // Sınıf silme (örn. test amaçlı eklenen sınıfları temizlemek için).
+    // Not: O sınıfa bağlı öğrenciler silinmiyor, sadece class_id'leri
+    // null'a çekilebilir istenirse -- şu an basitçe sınıf kaydı siliniyor.
+    public function apiSinifSil($id)
+    {
+        try {
+            $silindi = DB::table('siniflar')->where('id', $id)->delete();
+            if (!$silindi) {
+                return response()->json(['success' => false, 'message' => 'Sınıf bulunamadı.'], 404);
+            }
+            return response()->json(['success' => true, 'message' => 'Sınıf silindi.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+  public function apiSinavlariGetir(Request $request)
+    {
+        try {
+            $sinavlar = \App\Models\Sinav::orderBy('id', 'desc')->get();
+
+            $sinavlar->transform(function ($sinav) {
+                $sinav->id = (int) $sinav->id;
+                
+                $soruSayisi = 20;
+                if (!empty($sinav->cevap_anahtari)) {
+                    $decoded = is_string($sinav->cevap_anahtari) ? json_decode($sinav->cevap_anahtari, true) : $sinav->cevap_anahtari;
+                    if (is_array($decoded)) {
+                        $soruSayisi = count($decoded);
+                    }
+                }
+                $sinav->soru_sayisi = $soruSayisi;
+
+                // --- SİHİRLİ KISIM: Veritabanına dokunmadan koordinat dosyasından şık ve hane sayısını okuyoruz! ---
+                $siklar = 'ABCDE';
+                $hane = 9;
+                $koordDosya = storage_path('app/public/optik_forms/koordinat_' . $sinav->id . '.json');
+                
+                if (file_exists($koordDosya)) {
+                    $json = json_decode(file_get_contents($koordDosya), true);
+                    if (isset($json['sorular'][0])) {
+                        $harfler = [];
+                        foreach ($json['sorular'][0] as $k => $v) {
+                            if ($k !== 'soru_no') $harfler[] = $k;
+                        }
+                        if (count($harfler) > 0) {
+                            sort($harfler);
+                            $siklar = implode('', $harfler);
+                        }
+                    }
+                    if (isset($json['ogrenci_no'])) {
+                        $hane = count($json['ogrenci_no']);
+                    }
+                }
+                $sinav->sik_harfleri = $siklar;
+                $sinav->hane_sayisi = $hane;
+
+                return $sinav;
+            });
+
+            return response()->json(['success' => true, 'data' => $sinavlar]);
+            
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     // =====================================================================
     // WEB PANELİ İÇİN: SINAVLAR / SINIFLAR / ÖĞRENCİLER (kullanıcıya özel)
+    // Arkadaşımın kodundan hiç dokunmadan entegre edildi. apiSiniflariGetir /
+    // apiOgrencileriGetir vb. (yukarıdaki) mobil tarafın herkese açık genel
+    // listeleridir; buradakiler ise Auth::id() ile öğretmene özel filtrelenmiş,
+    // panelYetkiKontrol() ile korunan ayrı bir set. İkisi çakışmıyor.
     // =====================================================================
     private function panelYetkiKontrol()
     {

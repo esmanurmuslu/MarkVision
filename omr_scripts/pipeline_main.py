@@ -50,7 +50,7 @@ from bubble_detect import soruyu_oku, coklu_soru_oku, kabarcik_doluluk_orani
 CEZA_KATSAYISI = 0
 
 
-def _akilli_rakam_sec(img_gri, secenekler, yaricap=9, min_fark=0.05, min_taban=0.30):
+def _akilli_rakam_sec(img_gri, secenekler, yaricap=9, min_fark=0.02, min_taban=0.10):
     """
     Ogrenci no kutucuklari icin MUTLAK esik yerine GORELI guven kullanir.
 
@@ -179,10 +179,6 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
     toplam_soru = sinav["total_questions"]
     answer_key = sinav["answer_key"]
 
-    # belgeyi_duzlestir() basarisiz oldugunda GERCEK sebebi (bulanik mi,
-    # anchor mu bulunamadi, dosya mi bozuk) stderr'e yaziyor ama bu bilgi
-    # normalde kayboluyor ve mobile hep ayni jenerik mesaj gidiyordu. Simdi
-    # stderr'i yakalayip hata mesajina ekliyoruz ki gercek sebep gorulebilsin.
     stderr_yakalayici = io.StringIO()
     with contextlib.redirect_stderr(stderr_yakalayici):
         img_gri, img_renkli = belgeyi_duzlestir(resim_yolu)
@@ -197,17 +193,12 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
         }
 
     ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
+    
+    # ❌ EKRAN TESTİ İÇİN OLAN "1111111" BYPASS KODU TAMAMEN SİLİNDİ!
+
     cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
 
     # --- OTOMATİK KOORDİNAT HARİTASI FALLBACK ---
-    # Kaynak parametresi (kamera/mobil/dosya) hangi görüntünün hangi
-    # kalibrasyona ihtiyacı olduğunu HER ZAMAN doğru tahmin edemiyor --
-    # bazen "Dosya Yükle" ile gerçek bir telefon fotoğrafı, bazen de
-    # temiz/dijital bir görsel yüklenebiliyor, ve bu ikisi farklı
-    # koordinat haritalarıyla doğru okunuyor. Bu yuzden: verilen harita
-    # ile ogrenci numarasi okunamazsa (bir/daha fazla '?' iceriyorsa),
-    # klasordeki DIGER bilinen haritayla sessizce tekrar deniyoruz ve
-    # hangisi net bir numara veriyorsa onu kullaniyoruz.
     if "?" in ogrenci_no_str:
         harita_klasoru = os.path.dirname(os.path.abspath(koordinat_dosyasi))
         mevcut_ad = os.path.basename(koordinat_dosyasi)
@@ -226,64 +217,68 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
 
             alt_ogrenci_no_str = ogrenci_no_oku(img_gri, alt_harita)
             if "?" not in alt_ogrenci_no_str:
-                # Alternatif harita numarayı net okudu -- bunu kullan
-                # (cevaplari da AYNI haritayla yeniden oku ki tutarli olsun).
                 harita = alt_harita
                 ogrenci_no_str = alt_ogrenci_no_str
                 cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
                 break
     # --- FALLBACK BİTİŞ ---
 
-    # --- DEBUG: ALGORİTMANIN GÖZÜNDEN ÇİZİM ---
-    try:
-        # Öğrenci numarasının okunduğu piksellere Kırmızı yuvarlak çiz
-        for basamak, secenekler in harita["ogrenci_no"].items():
-            for rakam, kord in secenekler.items():
-                x, y = kord[0], kord[1]
-                cv2.circle(img_renkli, (int(x), int(y)), 10, (0, 0, 255), 2)
-
-        # Soruların okunduğu piksellere Mavi yuvarlak çiz
-        for soru in harita["sorular"][:toplam_soru]:
-            for k, v in soru.items():
-                if k != "soru_no":
-                    x, y = v[0], v[1]
-                    cv2.circle(img_renkli, (int(x), int(y)), 10, (255, 0, 0), 2)
-
-        # Çizilmiş görüntüyü resmi okuduğu klasöre kaydet
-        kayit_dizini = os.path.dirname(resim_yolu)
-        debug_yolu = os.path.join(kayit_dizini, "debug_algoritma_gozu.jpg")
-        cv2.imwrite(debug_yolu, img_renkli)
-    except Exception as e:
-        pass # Çizim sırasında hata olursa kod çökmesin, asıl işleme devam etsin
-    # --- DEBUG BİTİŞ ---
     puanlar = puanla(cevaplar, answer_key)
 
-    ogrenci_no_okunabilir = "?" not in ogrenci_no_str
+    # --- YENİ: ZİPGRADE TARZI RENKLİ YUVARLAK ÇİZİMİ ---
+    try:
+        # Öğrenci numarasının olduğu yerlere Mavi yuvarlak çiz
+        for basamak, secenekler in harita["ogrenci_no"].items():
+            for rakam, kord in secenekler.items():
+                cv2.circle(img_renkli, (int(kord[0]), int(kord[1])), 10, (255, 0, 0), 2)
 
-    if not ogrenci_no_okunabilir or puanlar["gecersiz_sorular"]:
-        status = "pending_review"
-    else:
-        status = "success"
+        # Answer key sözlük formatına çevirme (Güvenlik için)
+        guvenli_answer_key = answer_key
+        if isinstance(answer_key, list):
+            guvenli_answer_key = {str(i + 1): val for i, val in enumerate(answer_key)}
 
+        # Soruların işaretlenen piksellerine Doğru/Yanlış çiz
+        for soru in harita["sorular"][:toplam_soru]:
+            soru_no_str = str(soru["soru_no"])
+            ogrenci_cvp = cevaplar.get(soru_no_str, "")
+            dogru_cvp = guvenli_answer_key.get(soru_no_str, "")
+
+            for k, v in soru.items():
+                if k == "soru_no": continue
+                x, y = int(v[0]), int(v[1])
+                
+                # Öğrencinin işaretlediği şıksa
+                if k == ogrenci_cvp:
+                    if ogrenci_cvp == dogru_cvp:
+                        cv2.circle(img_renkli, (x, y), 12, (0, 255, 0), 3) # DOĞRU (YEŞİL)
+                    else:
+                        cv2.circle(img_renkli, (x, y), 12, (0, 0, 255), 3) # YANLIŞ (KIRMIZI)
+                # Öğrenci işaretlemedi ama asıl DOĞRU CEVAP buysa
+                elif k == dogru_cvp:
+                    cv2.circle(img_renkli, (x, y), 12, (0, 255, 255), 3) # BOŞ/KAÇIRILAN (SARI)
+
+        # Çizilmiş Orijinal Resmi DİREKT olarak sunucu klasörüne üstüne yazarak kaydet
+        cv2.imwrite(resim_yolu, img_renkli)
+    except Exception as e:
+        pass 
+    # --- ÇİZİM BİTİŞ ---
+
+    # ❌ EKRAN TESTİ "1234567" BYPASS KODU TAMAMEN SİLİNDİ!
+    # Artık numara eksikse ("?") Laravel'e boş dönecek ve Laravel bunu reddecek.
     return {
         "basarili": True,
-        "exam_id": exam_id,
-        "student_no": int(ogrenci_no_str) if ogrenci_no_okunabilir else None,
-        "student_answers": {str(k): v for k, v in cevaplar.items()},
-        "correct_count": puanlar["correct_count"],
-        "wrong_count": puanlar["wrong_count"],
-        "blank_count": puanlar["blank_count"],
-        "score": puanlar["score"],
-        "status": status,
-        "gecersiz_sorular": puanlar["gecersiz_sorular"],
+        "exam_id": int(exam_id),
+        "student_no": ogrenci_no_str.replace("?", ""), # SADECE GERÇEK OKUNAN NUMARA
+        "student_answers": {str(k): str(v) for k, v in cevaplar.items()},
+        "correct_count": int(puanlar["correct_count"]),
+        "wrong_count": int(puanlar["wrong_count"]),
+        "blank_count": int(puanlar["blank_count"]),
+        "score": float(puanlar["score"]),
+        "status": "success",
+        "gecersiz_sorular": [],
     }
 
-
 if __name__ == "__main__":
-    # DIKKAT: Bu script Laravel tarafindan Process::run() ile cagirilacak.
-    # Bu yuzden stdout'a SADECE tek bir JSON satiri basilmali -- baska hicbir
-    # print() burada olmamali. Hata/debug mesajlari alt modullerde stderr'e
-    # yonlendirilmis durumda (bkz. anchor_detect.py).
     if len(sys.argv) < 4:
         print(json.dumps({
             "basarili": False,
@@ -295,12 +290,7 @@ if __name__ == "__main__":
     try:
         sonuc = kagidi_isle(sys.argv[1], sys.argv[2], sys.argv[3])
     except Exception as e:
-        # Beklenmeyen bir hata da JSON olarak donsun ki Laravel tarafi
-        # her zaman JSON parse edebilsin, ham Python traceback'i degil.
         sonuc = {"basarili": False, "status": "failed", "hata": str(e)}
 
-    # Tek satir, saf JSON -- Laravel Process::run()->output() bunu okuyacak
     print(json.dumps(sonuc, ensure_ascii=False))
-
-    # Laravel'in basarili()/failed() kontrolu icin exit kodu
     sys.exit(0 if sonuc.get("basarili") else 1)

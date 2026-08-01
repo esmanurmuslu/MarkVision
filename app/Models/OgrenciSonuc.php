@@ -13,8 +13,15 @@ class OgrenciSonuc extends Model
         'obs_exam_result_id', 'obs_kayit_edildi',
     ];
 
-    protected $casts = [
+   protected $casts = [
         'ogrenci_cevaplari' => 'array',
         'obs_kayit_edildi' => 'boolean',
+        'toplam_puan' => 'float',
+        'dogru_sayisi' => 'integer',
+        'yanlis_sayisi' => 'integer',
+        'bos_sayisi' => 'integer',
+        'sinav_id' => 'integer',
+        'ogrenci_no' => 'integer', // EKSİK OLAN BUYDU
+        'id' => 'integer',         // EKSİK OLAN BUYDU
     ];
-}
+    }
