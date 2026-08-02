@@ -14,7 +14,7 @@ return new class extends Migration
     Schema::create('exam_results', function (Blueprint $table) {
         $table->id();
         $table->integer('exam_id');
-        $table->string('student_no');
+        $table->string('student_no')->nullable();
         $table->decimal('score', 5, 2);
         $table->timestamps();
     });

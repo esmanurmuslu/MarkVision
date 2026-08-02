@@ -45,7 +45,7 @@ Route::get('/gecmis-sonuclar/{id}', [MarkVisionController::class, 'gecmisSonucDe
     ->name('panel.gecmisdetay');
 // -----------------------------------
 
-// Cevap anahtarı
+// C Kişisi Görevi: Cevap anahtarı, soru ağırlıkları ve ceza katsayısı destekli kayıt
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey'])
     ->name('panel.cevapkaydet');
 

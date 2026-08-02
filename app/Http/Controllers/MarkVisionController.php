@@ -245,7 +245,7 @@ class MarkVisionController extends Controller
         }
     }
 
-    public function saveAnswerKey(Request $request)
+  public function saveAnswerKey(Request $request)
     {
         try {
             $request->validate([
@@ -258,6 +258,7 @@ class MarkVisionController extends Controller
                 'etiket_ad_soyad'    => 'nullable|string|max:50',
                 'etiket_sinif'       => 'nullable|string|max:50',
                 'etiket_sinav_adi'   => 'nullable|string|max:50',
+                'penalty_coef'       => 'nullable|numeric|min:0', // C KİŞİSİ GÖREVİ: Ceza katsayısı validasyonu
             ]);
 
             $dersKodu = trim((string) $request->input('ders_kodu'));
@@ -292,6 +293,10 @@ class MarkVisionController extends Controller
             $sinav->cevap_anahtari = $request->input('answers');
             $sinav->obs_exam_id = $obsExamId;
             $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
+            
+            // C KİŞİSİ GÖREVİ: Panelden gelen ceza katsayısını veritabanına kaydediyoruz
+            $sinav->penalty_coef = $request->input('penalty_coef', 0);
+
             // YENİ EKLENDİ: teacher_id atanmıyordu, bu yüzden "Sınavlar" sekmesi
             // (panelSinavlariGetir -> Sinav::where('teacher_id', Auth::id())) yeni
             // oluşturulan sınavı asla göremiyordu -- kayıt teacher_id=null olarak
@@ -318,83 +323,82 @@ class MarkVisionController extends Controller
 
             // === Bu sınava özel koordinat haritasını diske kaydet (varsa) ===
             $soruSayisi  = count($request->input('answers'));
-$sikHarfleri = strtoupper(trim($request->input('sik_harfleri', 'ABCDE')));
-$haneSayisi  = (int) $request->input('hane_sayisi', 9);
+            $sikHarfleri = strtoupper(trim($request->input('sik_harfleri', 'ABCDE')));
+            $haneSayisi  = (int) $request->input('hane_sayisi', 9);
+            $penaltyCoef = $sinav->penalty_coef; // C kişisi katsayısı
 
-$omrDir   = base_path('omr_scripts');
-$koordDir = storage_path('app/omr_scripts');
-$formDir  = storage_path('app/public/optik_forms');
-foreach ([$koordDir, $formDir] as $dir) {
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-}
+            $omrDir   = base_path('omr_scripts');
+            $koordDir = storage_path('app/omr_scripts');
+            $formDir  = storage_path('app/public/optik_forms');
+            foreach ([$koordDir, $formDir] as $dir) {
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0777, true);
+                }
+            }
 
-$koordCiktiYolu = $koordDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
-$pdfCiktiYolu   = $formDir  . DIRECTORY_SEPARATOR . 'form_' . $sinav->id . '.pdf';
+            $koordCiktiYolu = $koordDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
+            $pdfCiktiYolu   = $formDir  . DIRECTORY_SEPARATOR . 'form_' . $sinav->id . '.pdf';
 
-$cmdKoordinat = sprintf(
-    '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" 2>&1',
-    $this->pythonPath,
-    $omrDir . DIRECTORY_SEPARATOR . 'koordinat_uretici.py',
-    $soruSayisi, $sikHarfleri, $haneSayisi, $koordCiktiYolu
-);
-exec($cmdKoordinat, $koordCiktisi, $koordKodu);
+            $cmdKoordinat = sprintf(
+                '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" 2>&1',
+                $this->pythonPath,
+                $omrDir . DIRECTORY_SEPARATOR . 'koordinat_uretici.py',
+                $soruSayisi, $sikHarfleri, $haneSayisi, $koordCiktiYolu
+            );
+            exec($cmdKoordinat, $koordCiktisi, $koordKodu);
 
-$cmdPdf = sprintf(
-    '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" --baslik "%s" --etiket-ad-soyad "%s" --etiket-sinif "%s" --etiket-sinav-adi "%s" 2>&1',
-    $this->pythonPath,
-    $omrDir . DIRECTORY_SEPARATOR . 'sablon_uret.py',
-    $soruSayisi, $sikHarfleri, $haneSayisi, $pdfCiktiYolu,
-    // PDF ic metadata basligi indirilen dosya adiyla (exam_name) AYNI olsun
-    // diye -- yoksa sekme basligi ile indirilen dosya adi birbirini tutmuyor.
-    addslashes($request->input('exam_name')),
-    // Bu 3 alan sihirbazdaki checkbox'lardan geliyor: kullanici bir alani
-    // KAPATTIYSA (checkbox isaretsizse) frontend bos string gonderir, biz de
-    // burada varsayilan etikete DUSMEDEN oldugu gibi iletiyoruz ki PDF'te de
-    // gercekten gizlensin (bkz. sablon_uret.py::basligi_ciz).
-    addslashes((string) $request->input('etiket_ad_soyad', 'Ad Soyad')),
-    addslashes((string) $request->input('etiket_sinif', 'Sinif')),
-    addslashes((string) $request->input('etiket_sinav_adi', 'Sinav Adi'))
-);
-exec($cmdPdf, $pdfCiktisi, $pdfKodu);
+            $cmdPdf = sprintf(
+                '"%s" "%s" --soru %d --sik "%s" --hane %d --cikti "%s" --baslik "%s" --etiket-ad-soyad "%s" --etiket-sinif "%s" --etiket-sinav-adi "%s" 2>&1',
+                $this->pythonPath,
+                $omrDir . DIRECTORY_SEPARATOR . 'sablon_uret.py',
+                $soruSayisi, $sikHarfleri, $haneSayisi, $pdfCiktiYolu,
+                // PDF ic metadata basligi indirilen dosya adiyla (exam_name) AYNI olsun
+                // diye -- yoksa sekme basligi ile indirilen dosya adi birbirini tutmuyor.
+                addslashes($request->input('exam_name')),
+                // Bu 3 alan sihirbazdaki checkbox'lardan geliyor: kullanici bir alani
+                // KAPATTIYSA (checkbox isaretsizse) frontend bos string gonderir, biz de
+                // burada varsayilan etikete DUSMEDEN oldugu gibi iletiyoruz ki PDF'te de
+                // gercekten gizlensin (bkz. sablon_uret.py::basligi_ciz).
+                addslashes((string) $request->input('etiket_ad_soyad', 'Ad Soyad')),
+                addslashes((string) $request->input('etiket_sinif', 'Sinif')),
+                addslashes((string) $request->input('etiket_sinav_adi', 'Sinav Adi'))
+            );
+            exec($cmdPdf, $pdfCiktisi, $pdfKodu);
 
-if ($koordKodu !== 0 || $pdfKodu !== 0) {
-    return response()->json([
-        'success' => false,
-        'message' => 'Form üretilemedi: ' . implode(' ', array_merge($koordCiktisi, $pdfCiktisi)),
-    ], 500);
-}
+            if ($koordKodu !== 0 || $pdfKodu !== 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Form üretilemedi: ' . implode(' ', array_merge($koordCiktisi, $pdfCiktisi)),
+                ], 500);
+            }
 
-// Koordinat JSON'u normalde SADECE sunucu icinde (storage/app/omr_scripts)
-// kalir -- tarama pipeline'i onu oradan kullanir. Ama eskiden "Yayinla"
-// dedikten sonra hem PDF hem koordinat JSON bilgisayara iniyordu; bu
-// davranisi geri getirmek icin JSON'u da public storage'a KOPYALIYORUZ
-// ki indirilebilir bir URL'si olsun (asil kullanilan kopya hala
-// storage/app/omr_scripts icinde, buradaki sadece indirme amacli kopya).
-$koordPublicYolu = $formDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
-copy($koordCiktiYolu, $koordPublicYolu);
+            // Koordinat JSON'u normalde SADECE sunucu icinde (storage/app/omr_scripts)
+            // kalir -- tarama pipeline'i onu oradan kullanir. Ama eskiden "Yayinla"
+            // dedikten sonra hem PDF hem koordinat JSON bilgisayara iniyordu; bu
+            // davranisi geri getirmek icin JSON'u da public storage'a KOPYALIYORUZ
+            // ki indirilebilir bir URL'si olsun (asil kullanilan kopya hala
+            // storage/app/omr_scripts icinde, buradaki sadece indirme amacli kopya).
+            $koordPublicYolu = $formDir . DIRECTORY_SEPARATOR . 'koordinat_' . $sinav->id . '.json';
+            copy($koordCiktiYolu, $koordPublicYolu);
 
-$formUrl = asset('storage/optik_forms/form_' . $sinav->id . '.pdf');
-$koordUrl = asset('storage/optik_forms/koordinat_' . $sinav->id . '.json');
+            $formUrl = asset('storage/optik_forms/form_' . $sinav->id . '.pdf');
+            $koordUrl = asset('storage/optik_forms/koordinat_' . $sinav->id . '.json');
 
             // Web panelinde (session var) eskisi gibi "aktif sınav" session'a yazılır.
             // Mobil/api.php üzerinden gelen isteklerde session hiç yoktur (stateless),
             // bu durumda hasSession() false döner ve burada patlamadan geçilir.
             // Mobil taraf aktif sınavı bu response'taki 'sinav_id' değeriyle takip eder.
             if ($request->hasSession()) {
-                if ($request->hasSession()) {
-    $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
-}
+                $request->session()->put(self::AKTIF_SINAV_SESSION_KEY, $sinav->id);
             }
 
             return response()->json([
-    'success'  => true,
-    'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
-    'sinav_id' => $sinav->id,
-    'form_url' => $formUrl,
-    'koordinat_url' => $koordUrl,
-]);
+                'success'  => true,
+                'message'  => 'Cevap anahtarı başarıyla kaydedildi.',
+                'sinav_id' => $sinav->id,
+                'form_url' => $formUrl,
+                'koordinat_url' => $koordUrl,
+            ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -425,45 +429,16 @@ $koordUrl = asset('storage/optik_forms/koordinat_' . $sinav->id . '.json');
             }
 
             return response()->json([
-                'success'   => true,
-                'exam_name' => $sinav->sinav_adi,
-                'ders_kodu' => $sinav->ders_kodu,
-                'answers'   => $sinav->cevap_anahtari,
+                'success'      => true,
+                'exam_name'    => $sinav->sinav_adi,
+                'ders_kodu'    => $sinav->ders_kodu,
+                'answers'      => $sinav->cevap_anahtari,
+                'penalty_coef' => $sinav->penalty_coef ?? 0, // C kişisi verisi eklendi
             ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
-
-    // OBS'de kayıtlı sınavları listeler (Cevap Anahtarı ekranındaki dropdown için)
-    public function obsSinavlariGetir(Request $request)
-    {
-        // DİKKAT: header kodu süslü parantezin İÇİNDE olmalı!
-        header('ngrok-skip-browser-warning: true');
-
-        try {
-            $sinavlar = ObsExam::with('teacher')
-                ->orderBy('id', 'desc')
-                ->get(['id', 'teacher_id', 'course_name', 'exam_type', 'total_questions'])
-                ->map(function ($sinav) {
-                    return [
-                        'id'              => $sinav->id,
-                        'course_name'     => $sinav->course_name,
-                        'exam_type'       => $sinav->exam_type,
-                        'total_questions' => $sinav->total_questions,
-                        'teacher_name'    => $sinav->teacher->name ?? null,
-                    ];
-                });
-
-            return response()->json([
-                'success' => true,
-                'data'    => $sinavlar,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
-        }
-    }
-
     public function optikOkut(Request $request)
     {
         try {

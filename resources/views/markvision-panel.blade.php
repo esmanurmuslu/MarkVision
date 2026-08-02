@@ -226,7 +226,8 @@
             <div id="view-sihirbaz" class="sekme-icerik hidden max-w-4xl mx-auto space-y-6">
                 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                     <div class="bg-[#2c3e50] p-4 text-white flex items-center justify-between">
-                        <h2 class="text-sm font-bold" id="sihirbaz-baslik">Adım 1 / 5: Form Adı</h2>
+                        <!-- Güncellendi: 6 Adım Oldu -->
+                        <h2 class="text-sm font-bold" id="sihirbaz-baslik">Adım 1 / 6: Form Adı</h2>
                         <span class="text-xs opacity-80">MarkVision Tasarımcısı</span>
                     </div>
 
@@ -261,6 +262,10 @@
                         <div id="adim-4" class="sihirbaz-adim hidden space-y-4">
                             <div class="flex justify-between items-center">
                                 <h3 class="font-bold text-xs uppercase text-slate-700">Soru Blokları</h3>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-semibold text-slate-600">Ceza Katsayısı:</span>
+                                    <input type="number" id="wiz_penalty_coef" value="0" step="0.25" min="0" max="1" class="border rounded p-1 w-20 text-xs bg-white text-center font-bold">
+                                </div>
                                 <button type="button" id="btnSoruBlokEkle" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded text-xs cursor-pointer">+ Soru Bloğu Ekle</button>
                             </div>
                             <table class="w-full text-xs border border-slate-200">
@@ -271,7 +276,14 @@
                             </table>
                         </div>
 
-                        <div id="adim-5" class="sihirbaz-adim hidden space-y-4 text-center">
+                        <!-- ADIM 5: C KİŞİSİ - CEVAP ANAHTARI GİRİŞİ (YENİ EKLENDİ) -->
+                        <div id="adim-5" class="sihirbaz-adim hidden space-y-4">
+                            <h3 class="font-bold text-xs uppercase text-slate-700">Cevap Anahtarı Belirleme</h3>
+                            <p class="text-xs text-slate-500">Her soru için doğru şıkkı seçiniz (Otomatik 'A' ataması kaldırılmıştır).</p>
+                            <div id="cevap-anahtari-container" class="max-h-64 overflow-y-auto border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50"></div>
+                        </div>
+
+                        <div id="adim-6" class="sihirbaz-adim hidden space-y-4 text-center">
                             <h3 class="font-bold text-sm text-slate-800">Tebrikler! Tasarım Hazır</h3>
                             <p class="text-xs text-slate-500">Formu kaydetmek ve indirmek için Yayınla butonuna basın.</p>
                             <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs font-semibold">
@@ -418,16 +430,6 @@
         </div>
     </div>
 
-    <!-- ================================================================
-         AŞAĞIDAKİ 4 MODAL: arkadaşımın kodundan entegre edildi (YENİ).
-         Hiçbir mevcut id/buton değiştirilmedi; bunlar sadece ek modallar.
-         Şu an hiçbir buton bunları açmıyor -- kullanıma almak için "Sınıflar"
-         ve "Öğrenciler" tablolarındaki "Düzenle" satırlarına onclick eklemek
-         ve aşağıdaki panelSiniflariDoldur() / panelOgrencileriDoldur() /
-         panelSinifDuzenleAc() / panelOgrenciDuzenleAc() vb. fonksiyonları
-         çağırmak gerekiyor (bkz. script bloğunun sonundaki not).
-         ================================================================ -->
-
     <!-- MODAL: Sınıf Düzenle -->
     <div class="modal-bg" id="sinifDuzenleModal">
         <div class="modal-content">
@@ -472,7 +474,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Onay Penceresi (native confirm() yerine) -->
+    <!-- MODAL: Onay Penceresi -->
     <div class="modal-bg" id="onayModal" style="z-index: 10000;">
         <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
             <div class="p-6 text-center">
@@ -489,7 +491,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Bilgi/Uyarı Penceresi (native alert() yerine) -->
+    <!-- MODAL: Bilgi/Uyarı Penceresi -->
     <div class="modal-bg" id="bilgiModal" style="z-index: 10000;">
         <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
             <div class="p-6 text-center">
@@ -504,7 +506,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Hesabı Sil (YENİ EKLENDİ) -->
+    <!-- MODAL: Hesabı Sil -->
     <div class="modal-bg" id="hesabiSilModal" style="z-index: 10000;">
         <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
             <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
@@ -832,9 +834,14 @@
         function sihirbazGuncelle() {
             document.querySelectorAll('.sihirbaz-adim').forEach(a => a.classList.add('hidden'));
             document.getElementById(`adim-${aktifAdim}`).classList.remove('hidden');
-            document.getElementById('sihirbaz-baslik').textContent = `Adım ${aktifAdim} / 5: ${adimBasligiGetir(aktifAdim)}`;
+            document.getElementById('sihirbaz-baslik').textContent = `Adım ${aktifAdim} / 6: ${adimBasligiGetir(aktifAdim)}`;
             
+            // C KİŞİSİ GÖREVİ: 5. Adım (Cevap Anahtarı) açıldığında dinamik radioları kur
             if (aktifAdim === 5) {
+                cevapAnahtariArayuzunuOlustur();
+            }
+
+            if (aktifAdim === 6) {
                 document.getElementById('onizleme_ad').textContent = document.getElementById('wiz_form_name').value || "İsimsiz Sınav";
                 let toplamSoru = sihirbazSorular.reduce((acc, curr) => acc + curr.adet, 0);
                 document.getElementById('onizleme_soru').textContent = toplamSoru;
@@ -848,8 +855,37 @@
             if(a===1) return "Sınav Adı";
             if(a===2) return "Üst Bilgiler";
             if(a===3) return "Öğrenci Numarası";
-            if(a===4) return "Soruları Tanımla";
-            if(a===5) return "Önizleme ve Yayınla";
+            if(a===4) return "Soruları ve Ceza Katsayısını Tanımla";
+            if(a===5) return "Cevap Anahtarı Belirleme";
+            if(a===6) return "Önizleme ve Yayınla";
+        }
+
+        // C KİŞİSİ GÖREVİ: Dinamik Cevap Anahtarı Arayüzü Üretici (Otomatik A ataması kaldırıldı)
+        function cevapAnahtariArayuzunuOlustur() {
+            const container = document.getElementById('cevap-anahtari-container');
+            if(!container) return;
+            container.innerHTML = "";
+            
+            let sayac = 1;
+            sihirbazSorular.forEach((blok) => {
+                const harfler = blok.etiket.split('');
+                for (let i = 0; i < blok.adet; i++) {
+                    const soruNo = sayac++;
+                    let html = `<div class="flex items-center justify-between bg-white p-2 rounded border border-slate-200">
+                        <span class="font-bold text-xs text-slate-700">Soru ${soruNo}:</span>
+                        <div class="flex gap-2">`;
+                    
+                    harfler.forEach((harf, hIdx) => {
+                        const isChecked = hIdx === 0 ? 'checked' : '';
+                        html += `<label class="inline-flex items-center gap-1 cursor-pointer text-xs font-semibold px-2 py-1 rounded bg-slate-100 hover:bg-slate-200">
+                            <input type="radio" name="dogru_cevap_${soruNo}" value="${harf}" ${isChecked} class="text-blue-600"> ${harf}
+                        </label>`;
+                    });
+                    
+                    html += `</div></div>`;
+                    container.innerHTML += html;
+                }
+            });
         }
 
         document.getElementById('wizBtnBack').addEventListener('click', () => {
@@ -858,7 +894,7 @@
         });
 
         document.getElementById('wizBtnNext').addEventListener('click', async () => {
-            if (aktifAdim < 5) {
+            if (aktifAdim < 6) {
                 aktifAdim++; sihirbazGuncelle();
             } else {
                 publisFormuKaydet();
@@ -887,9 +923,6 @@
 // -- JS'nin ayrı bir mm/px matematiği bir daha asla olmayacak.
 // =============================================================================
 
-// Tarayıcının PDF/JSON'u yeni sekmede AÇMASI yerine gerçekten bilgisayara
-// İNDİRMESİNİ sağlar (window.open sadece görüntüler, indirmez). Aynı origin
-// (127.0.0.1:8000) olduğu için <a download> her tarayıcıda güvenilir çalışır.
 function dosyaIndir(url, dosyaAdi) {
     if (!url) return;
     const a = document.createElement('a');
@@ -917,7 +950,8 @@ async function hizliSinavOlustur(examName, soruSayisi, sikHarfleri, haneSayisi) 
                 answers: answers,
                 question_weights: question_weights,
                 sik_harfleri: sikHarfleri,
-                hane_sayisi: haneSayisi
+                hane_sayisi: haneSayisi,
+                penalty_coef: 0
             })
         });
         const d = await res.json();
@@ -950,11 +984,9 @@ async function publisFormuKaydet() {
     const hasId = document.getElementById('wiz_has_student_id').checked;
     const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 9;
 
-    // Adım 2'deki checkbox'lar (box_name/box_class/box_quiz) daha önce
-    // sadece görsel bir önizlemeydi, backend'e hiç gönderilmiyordu -- bu
-    // yuzden bir alani kapatsan bile PDF'te hep goruniyordu. Simdi:
-    // checkbox isaretli DEGILSE bos string gonderiyoruz, backend de bos
-    // stringi "bu alani cizme" olarak yorumluyor (bkz. sablon_uret.py).
+    // C KİŞİSİ GÖREVİ: Ceza katsayısını panelden alıyoruz
+    const penaltyCoef = parseFloat(document.getElementById('wiz_penalty_coef')?.value) || 0;
+
     const gosterAdSoyad = document.getElementById('box_name')?.checked ?? true;
     const gosterSinif = document.getElementById('box_class')?.checked ?? true;
     const gosterSinavAdi = document.getElementById('box_quiz')?.checked ?? true;
@@ -974,7 +1006,9 @@ async function publisFormuKaydet() {
     let sayac = 1;
     sihirbazSorular.forEach(blok => {
         for (let i = 0; i < blok.adet; i++) {
-            answers[sayac] = blok.etiket.charAt(0);
+            // C KİŞİSİ GÖREVİ: Radio butonlarından öğretmenin seçtiği gerçek cevabı alıyoruz
+            const radyoSecim = document.querySelector(`input[name="dogru_cevap_${sayac}"]:checked`);
+            answers[sayac] = radyoSecim ? radyoSecim.value : blok.etiket.charAt(0);
             question_weights[sayac] = blok.puan;
             sayac++;
         }
@@ -992,7 +1026,8 @@ async function publisFormuKaydet() {
                 hane_sayisi: haneSayisi,
                 etiket_ad_soyad: etiketAdSoyad,
                 etiket_sinif: etiketSinif,
-                etiket_sinav_adi: etiketSinavAdi
+                etiket_sinav_adi: etiketSinavAdi,
+                penalty_coef: penaltyCoef
             })
         });
         const d = await res.json();
@@ -1012,57 +1047,39 @@ async function publisFormuKaydet() {
     }
 }
 async function sinavlariGetirVeDoldur() {
-            const tbody = document.getElementById('sinav-tablo-govde');
-            try {
-                const res = await fetch('/api/v1/exams');
-                const data = await res.json();
-                const sinavlar = (data.success && Array.isArray(data.data)) ? data.data : [];
+        const tbody = document.getElementById('sinav-tablo-govde');
+        try {
+            const res = await fetch('/api/v1/exams');
+            const data = await res.json();
+            const sinavlar = (data.success && Array.isArray(data.data)) ? data.data : [];
 
-                if (sinavlar.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Henüz sınav eklenmedi.</td></tr>`;
-                } else {
-                    tbody.innerHTML = sinavlar.map(s => {
-                        const ad = s.exam_name || s.sinav_adi || 'İsimsiz Sınav';
-                        const tarih = s.created_at ? s.created_at.split('T')[0] : '-';
-                        let soruSayisi = 20;
-                        if(s.answer_key || s.cevap_anahtari) {
-                            try {
-                               let parsed = typeof (s.answer_key || s.cevap_anahtari) === 'string' ? JSON.parse(s.answer_key || s.cevap_anahtari) : (s.answer_key || s.cevap_anahtari);
-                               soruSayisi = Object.keys(parsed).length;
-                            } catch(e) {}
-                        }
-                        return `<tr class="border-b border-slate-200 tablo-satir">
-                            <td class="p-3 text-center"><input type="checkbox"></td>
-                            <td class="p-3 border-l border-slate-200">Genel</td>
-                            <td class="p-3 border-l border-slate-200 font-bold text-blue-600">${ad}</td>
-                            <td class="p-3 border-l border-slate-200">${tarih}</td>
-                            <td class="p-3 border-l border-slate-200">${soruSayisi}</td>
-                        </tr>`;
-                    }).join('');
-                }
-            } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">Yüklenemedi: ${err.message}</td></tr>`;
+            if (sinavlar.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Henüz sınav eklenmedi.</td></tr>`;
+            } else {
+                tbody.innerHTML = sinavlar.map(s => {
+                    const ad = s.exam_name || s.sinav_adi || 'İsimsiz Sınav';
+                    const tarih = s.created_at ? s.created_at.split('T')[0] : '-';
+                    let soruSayisi = 20;
+                    if(s.answer_key || s.cevap_anahtari) {
+                        try {
+                             let parsed = typeof (s.answer_key || s.cevap_anahtari) === 'string' ? JSON.parse(s.answer_key || s.cevap_anahtari) : (s.answer_key || s.cevap_anahtari);
+                             soruSayisi = Object.keys(parsed).length;
+                        } catch(e) {}
+                    }
+                    return `<tr class="border-b border-slate-200 tablo-satir">
+                        <td class="p-3 text-center"><input type="checkbox"></td>
+                        <td class="p-3 border-l border-slate-200">Genel</td>
+                        <td class="p-3 border-l border-slate-200 font-bold text-blue-600">${ad}</td>
+                        <td class="p-3 border-l border-slate-200">${tarih}</td>
+                        <td class="p-3 border-l border-slate-200">${soruSayisi}</td>
+                    </tr>`;
+                }).join('');
             }
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">Yüklenemedi: ${err.message}</td></tr>`;
         }
+    }
 
-        // =====================================================================
-        // AŞAĞISI: arkadaşımın kodundan entegre edilen EK panel özellikleri.
-        // Hiçbir mevcut fonksiyon/id DEĞİŞTİRİLMEDİ; isim çakışan iki fonksiyon
-        // (sinifKaydet, ogrenciKaydet) "panel" önekiyle yeniden adlandırıldı ki
-        // benim çalışan sinifKaydet()/ogrenciKaydet() fonksiyonlarımın üzerine
-        // yazılmasınlar.
-        //
-        // ÖNEMLİ - HENÜZ AKTİF DEĞİL: Bu fonksiyonlar "{{ route('panel.sinavlar.listele') }}"
-        // gibi Laravel route isimlerine ve "/panel/siniflar/{id}", "/panel/ogrenciler/{id}"
-        // gibi yollara istek atıyor. Bu route'lar muhtemelen web.php içinde tanımlı ama
-        // web.php bana yüklenmedi, bu yüzden var olup olmadıklarını doğrulayamadım/ekleyemedim.
-        // Ayrıca hiçbir buton şu an bunları çağırmıyor (yeni modallar da eklendi ama
-        // "Düzenle" satırlarına onclick bağlanmadı) -- mevcut çalışan akışı bozmamak için
-        // kasıtlı olarak dokunmadım. Kullanmak istersen web.php'deki panel.* route'larını
-        // teyit et, sonra tablolardaki "Düzenle" hücrelerine ve "Seçilenleri Sil" butonuna
-        // panelSiniflariDoldur() / panelOgrencileriDoldur() / panelSinavlariDoldur() vb.
-        // çağrılarını bağlaman yeterli.
-        // =====================================================================
 let _onayModalCozumle = null;
 
         function onayIste(mesaj, baslik = "Emin misiniz?") {
@@ -1160,7 +1177,6 @@ let _onayModalCozumle = null;
                 const d = await res.json();
                 tbody.innerHTML = "";
 
-                // Öğrenci ekle/düzenle modallarındaki sınıf listelerini de tazele
                 if (yeniSelect) yeniSelect.innerHTML = '<option value="">— Sınıf Seçin (opsiyonel) —</option>';
                 if (duzenleSelect) duzenleSelect.innerHTML = '<option value="">— Sınıf Seçin (opsiyonel) —</option>';
 
@@ -1389,7 +1405,6 @@ let _onayModalCozumle = null;
                 }
             });
 
-            // SENİN YAPTIĞIN PNG ÖNİZLEME (IFRAME) SİSTEMİ
             if (format === 'png') {
                 const pdfData = doc.output('datauristring');
                 const newWindow = window.open();
@@ -1456,8 +1471,6 @@ let _onayModalCozumle = null;
             }
         }
 
-        // YENİ EKLENDİ: Hesabım sekmesindeki "Şifreyi Güncelle" butonu.
-        // Zaten var olan /panel/sifre-degistir (panel.sifredegistir) ucunu kullanır.
         async function hesapSifreDegistir() {
             const eski = document.getElementById('hesap-eski-sifre').value;
             const yeni = document.getElementById('hesap-yeni-sifre').value;
@@ -1487,8 +1500,6 @@ let _onayModalCozumle = null;
             }
         }
 
-        // YENİ EKLENDİ: "Hesabı Sil" modalındaki onay butonu.
-        // Şifre doğrulaması sunucu tarafında (panel.hesabisil) yapılır.
         async function hesabiSilOnayla() {
             const sifre = document.getElementById('hesabi-sil-sifre').value;
             if (!sifre) { bilgiGoster("Lütfen şifrenizi girin."); return; }

@@ -50,6 +50,7 @@ Route::post('/v1/optik-okut', [MarkVisionController::class, 'optikOkut']);
 Route::post('/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku']);
 Route::post('/v1/optik-anahtar-oku', [MarkVisionController::class, 'anahtarOku']);
 
+// C Kişisi: Cevap anahtarı ve ceza katsayısı destekli kayıt rotaları
 Route::post('/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey']);
 Route::post('/v1/cevap-anahtari-kaydet', [MarkVisionController::class, 'saveAnswerKey']);
 
