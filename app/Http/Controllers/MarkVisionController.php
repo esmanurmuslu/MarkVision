@@ -19,7 +19,7 @@ use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
-   private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
+   private string $pythonPath = 'python';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
@@ -304,8 +304,12 @@ class MarkVisionController extends Controller
             // stateless istekte Auth::id() zaten null döner, orada davranış değişmez.
             if (Auth::check()) {
                 $sinav->teacher_id = Auth::id();
-            }
-
+            } elseif ($request->has('email')) {
+                $teacher = DB::table('teachers')->where('email', $request->input('email'))->first();
+                if ($teacher) {
+                    $sinav->teacher_id = $teacher->id;
+                }
+            } 
             try {
                 $sinav->save();
             } catch (\Illuminate\Database\QueryException $e) {
@@ -441,6 +445,16 @@ class MarkVisionController extends Controller
     }
     public function optikOkut(Request $request)
     {
+        // EKLENDİ: python OCR pipeline'i (cv2 import + goruntu isleme) bazen
+        // PHP'nin varsayilan max_execution_time suresinden uzun surebiliyor.
+        // Bu durumda PHP script'i sessizce kesip baglantiyi hicbir HTTP
+        // header'i donmeden kapatiyor -- Flutter tarafinda tam olarak
+        // "Connection closed before full header was received" hatasina
+        // sebep olan budur. 300 saniyeye cikararak bu erken kesilmeyi
+        // engelliyoruz (asil darbogaz makine/agdaysa bu tek basina
+        // yetmeyebilir, ama sebeplerden birini kesin olarak eler).
+        set_time_limit(300);
+
         try {
             $request->validate([
                 'image' => 'required|file|image|max:10240',
@@ -582,6 +596,7 @@ if (!$sinavId && $request->hasSession()) {
                     'message' => 'Hata: Öğrenci numarası okunamadı! Lütfen kodlamayı kontrol edip formu tekrar net bir şekilde okutun.',
                 ], 422);
             }
+
 
             $ogrenciSonuc = OgrenciSonuc::create([
                 'sinav_id'          => $sinav->id,
@@ -725,6 +740,10 @@ if (!$sinavId && $request->hasSession()) {
 
     public function anahtarOku(Request $request)
     {
+        // EKLENDİ: optikOkut() ile ayni sebep -- python pipeline uzun surerse
+        // PHP'nin kendi zaman asimi baglantiyi header donmeden kesmesin diye.
+        set_time_limit(300);
+
         try {
             $request->validate([
                 'image'           => 'required|file|image|max:10240',
@@ -865,6 +884,17 @@ if (!$sinavId && $request->hasSession()) {
                     $bX = $colX + 3.75;
                     $harita['ogrenci_no'][$basamakAdi][(string)$j] = $mmToPx($bX, $bY);
                 }
+
+                // ÖNEMLİ DÜZELTME: $harita['ogrenci_no'][$basamakAdi] içindeki anahtarlar
+                // "0","1",...,"9" -- yani sıralı sayısal string'ler. PHP'nin json_encode()
+                // fonksiyonu, TÜM anahtarları 0'dan başlayan sıralı tamsayı olan bir diziyi
+                // JSON OBJECT değil, JSON ARRAY olarak yazar (ör. {"0":[..],"1":[..]} yerine
+                // [[..],[..]]). Python tarafında (pipeline_main.py -> ogrenci_no_oku ->
+                // .items()) bu alan MUTLAKA bir dict/obje bekleniyor; array olarak gelince
+                // "'list' object has no attribute 'items'" hatasi ile cakiliyor -- ekran
+                // goruntusundeki "ANAHTAR TARA" hatasinin birebir sebebi budur. (object)
+                // cast'i, anahtarlari korkarak JSON object olarak yazilmasini garanti eder.
+                $harita['ogrenci_no'][$basamakAdi] = (object) $harita['ogrenci_no'][$basamakAdi];
             }
         }
 
@@ -901,47 +931,27 @@ if (!$sinavId && $request->hasSession()) {
         return $cikti;
     }
 
+
+
     public function apiSiniflariGetir(Request $request)
     {
-        // Veritabanındaki sınıfları telefona JSON olarak döndürür
-        $siniflar = DB::table('siniflar')->orderBy('class_name')->get();
-        return response()->json(['success' => true, 'data' => $siniflar]);
-    }
-
-    public function apiSinifKaydet(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'class_name' => 'required|string|max:100',
-            ]);
-
-            // Telefonda eklenen sınıfı veritabanına kaydeder
-            $id = DB::table('siniflar')->insertGetId([
-                'class_name' => $validated['class_name'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            return response()->json(['success' => true, 'id' => $id, 'message' => 'Sınıf eklendi']);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => collect($e->errors())->flatten()->first() ?? 'Geçersiz veri gönderildi.',
-            ], 422);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        $query = DB::table('siniflar')->orderBy('class_name');
+        if ($request->has('email')) {
+            $teacher = DB::table('teachers')->where('email', $request->input('email'))->first();
+            if ($teacher) $query->where('teacher_id', $teacher->id);
         }
+        return response()->json(['success' => true, 'data' => $query->get()]);
     }
 
     public function apiOgrencileriGetir(Request $request)
     {
-        $ogrenciler = DB::table('students')->get();
-        return response()->json(['success' => true, 'data' => $ogrenciler]);
+        $query = DB::table('panel_students')->orderBy('id', 'desc');
+        if ($request->has('email')) {
+            $teacher = DB::table('teachers')->where('email', $request->input('email'))->first();
+            if ($teacher) $query->where('teacher_id', $teacher->id);
+        }
+        return response()->json(['success' => true, 'data' => $query->get()]);
     }
-
-    // Telefonda eklenen öğrenciyi veritabanına kaydeder (apiOgrencileriGetir'in eşi).
-    // DİKKAT: 'students' tablosunun gerçek kolon adlarını (name/student_no vb.)
-    // migration dosyanızdan teyit edip gerekirse burayı güncelleyin — bu dosya
-    // bende yoktu, bu yüzden en olası isimlerle yazıldı.
     public function apiOgrenciKaydet(Request $request)
     {
         try {
@@ -1021,7 +1031,17 @@ if (!$sinavId && $request->hasSession()) {
   public function apiSinavlariGetir(Request $request)
     {
         try {
-            $sinavlar = \App\Models\Sinav::orderBy('id', 'desc')->get();
+            $query = \App\Models\Sinav::orderBy('id', 'desc');
+            
+            if ($request->has('email')) {
+                $teacher = DB::table('teachers')->where('email', $request->input('email'))->first();
+                if ($teacher) {
+                    $query->where('teacher_id', $teacher->id);
+                } else {
+                    return response()->json(['success' => true, 'data' => []]);
+                }
+            }
+            $sinavlar = $query->get();
 
             $sinavlar->transform(function ($sinav) {
                 $sinav->id = (int) $sinav->id;

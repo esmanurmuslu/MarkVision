@@ -88,7 +88,7 @@ def mm_to_px(xmm: float, ymm: float) -> tuple[int, int]:
 #    Bu alan OMR ile okunmaz (ogretmen elle okur), bu yuzden soru/sik/hane
 #    sayisindan BAGIMSIZ, sabit.
 # =====================================================================
-CONTENT_LEFT_MM = 25.0
+CONTENT_LEFT_MM = 18.0
 CONTENT_RIGHT_MM = PAGE_W_MM - MARGIN_MM - ANCHOR_SIZE_MM  # 187.0
 HEADER_TOP_MM = 22.0
 HEADER_BOTTOM_MM = 40.0
@@ -110,26 +110,25 @@ ID_BUBBLE_RADIUS_MM = 1.6
 
 def ogrenci_no_plani(hane_sayisi: int) -> dict:
     """
-    hane_sayisi kadar sutun, her sutunda 0-9 arasi 10 rakam kabarcigi.
-    Sutun araligi, mevcut genislige (CONTENT alanina) sigacak sekilde
-    otomatik daraltilir/genisletilir (7-12mm arasi).
+    Öğrenci numarası sütunlarının x koordinatlarını piksel kayması 
+    yaşanmayacak şekilde sabit milimetre aralıklarına sabitler.
     """
     if hane_sayisi < 1:
         raise ValueError("Ogrenci no hane sayisi en az 1 olmali.")
 
-    genislik = CONTENT_RIGHT_MM - CONTENT_LEFT_MM
-    col_spacing = genislik / hane_sayisi
-    col_spacing = max(ID_COL_SPACING_MIN_MM, min(ID_COL_SPACING_MAX_MM, col_spacing))
+    # Sütunlar arasındaki mesafeyi ve sol başlangıcı formdaki kutulara tam oturacak şekilde sabitliyoruz
+    sabit_sol_baslangic = CONTENT_LEFT_MM + 2.0
+    sabit_col_spacing = 8.5  # Her bir hane sütununun arasındaki mm mesafesi (kesin uyumlu değer)
 
     plan = {
         "hane_sayisi": hane_sayisi,
-        "col_spacing_mm": col_spacing,
+        "col_spacing_mm": sabit_col_spacing,
         "bubble_radius_mm": ID_BUBBLE_RADIUS_MM,
         "basamaklar": {},
     }
 
     for basamak_idx in range(hane_sayisi):
-        col_x = CONTENT_LEFT_MM + col_spacing / 2 + basamak_idx * col_spacing
+        col_x = sabit_sol_baslangic + basamak_idx * sabit_col_spacing
         basamak_adi = f"basamak_{basamak_idx + 1}"
         plan["basamaklar"][basamak_adi] = {}
         for rakam in range(10):
@@ -138,7 +137,6 @@ def ogrenci_no_plani(hane_sayisi: int) -> dict:
 
     plan["bubbles_bottom_mm"] = ID_BUBBLES_TOP_MM + 10 * ID_ROW_SPACING_MM
     return plan
-
 
 # =====================================================================
 # 5) SORU/SIK KABARCIK HARITASI -- bu modulun kalbi burasi. Dinamik soru
@@ -185,7 +183,7 @@ def sorular_plani(soru_sayisi: int, sik_harfleri: str, id_plani: dict) -> dict:
     if len(set(sik_harfleri)) != sik_sayisi:
         raise ValueError("Sik harfleri icinde tekrar eden harf var.")
 
-    answer_top = id_plani["bubbles_bottom_mm"] + 8.0
+    answer_top = id_plani["bubbles_bottom_mm"] + 2.0
     answer_bottom = PAGE_H_MM - MARGIN_MM - ANCHOR_SIZE_MM - ANSWER_BOTTOM_MARGIN_MM
     dikey_alan = answer_bottom - answer_top
     yatay_alan = CONTENT_RIGHT_MM - CONTENT_LEFT_MM

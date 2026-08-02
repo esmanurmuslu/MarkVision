@@ -50,51 +50,55 @@ from bubble_detect import soruyu_oku, coklu_soru_oku, kabarcik_doluluk_orani
 CEZA_KATSAYISI = 0
 
 
-def _akilli_rakam_sec(img_gri, secenekler, yaricap=9, min_fark=0.02, min_taban=0.10):
+def _akilli_rakam_sec(img_gri, secenekler, yaricap=12, min_taban=0.25):
     """
-    Ogrenci no kutucuklari icin MUTLAK esik yerine GORELI guven kullanir.
-
-    Neden: kucuk yaricapli (8-9px) kirpimda, ISARETLENMEMIS bos bir
-    kutucugun basili halka cizgisi bile (per-bolge Otsu esiklemesi
-    yuzunden) yanlislikla "dolu" sayilabiliyor -- ozellikle gercek
-    kamera fotograflarinda (tarama/ekran goruntusune gore daha
-    gurultulu). Bu yuzden mutlak "esik=0.45" yerine:
-      1) En yuksek dolulugu bul.
-      2) Bu, ikinci en yuksekten YETERINCE ayrisiyor mu kontrol et.
-      3) Ayrisim yoksa ya da hicbiri yeterince dolu degilse '?' don
-         (boylece cagiran kod bunu 'pending_review' olarak isaretler --
-         yanlis bir rakami sessizce kaydetmek yerine).
+    Kamera çekimlerindeki hafif kaymaları ve gölgeleri bertaraf etmek için 
+    yarıçap (yaricap=12) biraz büyütüldü ve güvenli taban esnetildi.
     """
-    oranlar = {h: kabarcik_doluluk_orani(img_gri, m, yaricap) for h, m in secenekler.items()}
-    siralanan = sorted(oranlar.items(), key=lambda kv: -kv[1])
-    en_iyi_harf, en_iyi_oran = siralanan[0]
-    ikinci_oran = siralanan[1][1] if len(siralanan) > 1 else 0.0
+    en_iyi_rakam = "?"
+    en_yuksek_oran = 0.0
 
-    if en_iyi_oran < min_taban:
-        return "?"
-    if (en_iyi_oran - ikinci_oran) < min_fark:
-        return "?"
-    return en_iyi_harf
+    for rakam_str, merkez in secenekler.items():
+        # Yarıçapı 12 yaparak dairenin sınırlarındaki hafif oynamaları da kapsıyoruz
+        oran = kabarcik_doluluk_orani(img_gri, merkez, yaricap=12)
+        if oran > en_yuksek_oran:
+            en_yuksek_oran = oran
+            en_iyi_rakam = rakam_str
 
+    if en_yuksek_oran < min_taban:
+        return "?"
+
+    return en_iyi_rakam
 
 def ogrenci_no_oku(img_gri, harita):
-    """
-    Ogrenci no'yu basamak basamak okuyup birlestirir.
-    Okunamayan/belirsiz bir basamak varsa '?' ile isaretlenir --
-    boylece cagiran kod (kagidi_isle) bunu tespit edip 'pending_review'
-    durumuna cekebilir.
-    """
-    no = ""
-    for basamak_adi in sorted(
+    basamaklar = sorted(
         harita["ogrenci_no"].keys(),
-        key=lambda s: int(s.split("_")[1])  # basamak_1, basamak_2, ... dogru sirada gitsin
-    ):
+        key=lambda s: int(s.split("_")[1])
+    )
+    
+    rakamlar_listesi = []
+    for basamak_adi in basamaklar:
         secenekler = harita["ogrenci_no"][basamak_adi]
         secenekler = {k: tuple(v) for k, v in secenekler.items()}
-        no += _akilli_rakam_sec(img_gri, secenekler, yaricap=9)
+        
+        rakam = _akilli_rakam_sec(img_gri, secenekler, yaricap=9)
+        
+        # Eğer bu sütun boşsa ('?') ve biz zaten en az 2-3 hane okuduysak, 
+        # öğrencinin numarası bitmiş demektir; sağdaki boş sütunları okumayı bırak!
+        if rakam == "?":
+            if len(rakamlar_listesi) >= 2:
+                break
+            else:
+                continue
+        else:
+            rakamlar_listesi.append(rakam)
+            
+    no = "".join(rakamlar_listesi)
+    
+    if len(no.strip()) < 1:
+        return "?"
+        
     return no
-
-
 def sorulari_oku(img_gri, harita, toplam_soru):
     """
     Optik kagitta fiziksel olarak 40 soruluk yer olsa da, sinava gore
@@ -193,7 +197,14 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
         }
 
     ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
-    
+    # --- AKILLI HİZALAMA VE GÜVENLİK KİLİDİ ---
+    # Sadece içinde çok fazla '?' varsa ya da boyu çok kısaysa reddet
+    if ogrenci_no_str.count("?") > 2 or len(ogrenci_no_str.strip()) < 5:
+        return {
+            "basarili": False,
+            "status": "failed",
+            "hata": "Öğrenci numarası net okunamadı. Lütfen formu kameraya tam ve dik tutun."
+        }
     # ❌ EKRAN TESTİ İÇİN OLAN "1111111" BYPASS KODU TAMAMEN SİLİNDİ!
 
     cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
@@ -237,25 +248,26 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
         if isinstance(answer_key, list):
             guvenli_answer_key = {str(i + 1): val for i, val in enumerate(answer_key)}
 
-        # Soruların işaretlenen piksellerine Doğru/Yanlış çiz
+        # Soruların işaretlenen piksellerine Doğru/Yanlış/Boş çiz
         for soru in harita["sorular"][:toplam_soru]:
             soru_no_str = str(soru["soru_no"])
-            ogrenci_cvp = cevaplar.get(soru_no_str, "")
+            ogrenci_cvp = cevaplar.get(soru_no_str, "BOS")
             dogru_cvp = guvenli_answer_key.get(soru_no_str, "")
 
             for k, v in soru.items():
                 if k == "soru_no": continue
                 x, y = int(v[0]), int(v[1])
                 
-                # Öğrencinin işaretlediği şıksa
+                # 1. Eğer öğrenci bu şıkkı işaretlediyse:
                 if k == ogrenci_cvp:
                     if ogrenci_cvp == dogru_cvp:
-                        cv2.circle(img_renkli, (x, y), 12, (0, 255, 0), 3) # DOĞRU (YEŞİL)
+                        cv2.circle(img_renkli, (x, y), 12, (0, 255, 0), 3) # DOĞRU -> YEŞİL
                     else:
-                        cv2.circle(img_renkli, (x, y), 12, (0, 0, 255), 3) # YANLIŞ (KIRMIZI)
-                # Öğrenci işaretlemedi ama asıl DOĞRU CEVAP buysa
-                elif k == dogru_cvp:
-                    cv2.circle(img_renkli, (x, y), 12, (0, 255, 255), 3) # BOŞ/KAÇIRILAN (SARI)
+                        cv2.circle(img_renkli, (x, y), 12, (0, 0, 255), 3) # YANLIŞ -> KIRMIZI
+                
+                # 2. Eğer öğrenci bu soruyu BOŞ bıraktıysa (ve bu şık doğru cevapsa) -> SARI
+                elif ogrenci_cvp == "BOS" and k == dogru_cvp:
+                    cv2.circle(img_renkli, (x, y), 12, (0, 255, 255), 3) # BOŞ -> SARI
 
         # Çizilmiş Orijinal Resmi DİREKT olarak sunucu klasörüne üstüne yazarak kaydet
         cv2.imwrite(resim_yolu, img_renkli)

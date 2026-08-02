@@ -369,39 +369,14 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
         import sys
         print("Bilgi: Anchor kareler adaptif esikleme ile bulundu (dusuk kontrast/golge tespit edildi).", file=sys.stderr)
 
-    # === KUSURSUZ VE KIRILMAZ YÖN BULMA ALGORİTMASI ===
+    # === YENİ VE GÜVENLİ YÖN BULMA ALGORİTMASI ===
+    # Sadece Geometrik Kontrol (Genişlik < Yükseklik olmalı)
+    # Ekran yansıması yüzünden kağıdı ters çeviren kod kaldırılmıştır.
+
     def _rol_dondur(koseler_dict, adim):
         sira = ["sol_ust", "sag_ust", "sag_alt", "sol_alt"]
         n = len(sira)
         return {rol: koseler_dict[sira[(i - adim) % n]] for i, rol in enumerate(sira)}
-
-    def _yon_skoru(img_bgr, kaynak_noktalar):
-        su = kaynak_noktalar[0]
-        sa = kaynak_noktalar[1]
-        al = kaynak_noktalar[3]
-        
-        # 1. GEOMETRİK KONTROL (Yan Yatma Engeli)
-        genislik = math.hypot(su[0] - sa[0], su[1] - sa[1])
-        yukseklik = math.hypot(su[0] - al[0], su[1] - al[1])
-        
-        if genislik > yukseklik:
-            return -float('inf') 
-            
-        # 2. SOL-SAĞ KONTROLÜ (Ters Dönme Engeli)
-        gri_test = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-        hh, ww = gri_test.shape[:2]
-        
-        sol_serit = gri_test[int(hh*0.1):int(hh*0.9), 0:int(ww*0.08)]
-        sag_serit = gri_test[int(hh*0.1):int(hh*0.9), int(ww*0.92):ww]
-        
-        sol_koyu = np.sum(sol_serit < 150)
-        sag_koyu = np.sum(sag_serit < 150)
-        
-        return sol_koyu - sag_koyu
-
-    en_iyi_skor = -float('inf')
-    en_iyi_warped = None
-    en_iyi_gri = None
 
     hedef_noktalar = np.float32([
         [kenar_bosluk, kenar_bosluk],
@@ -409,6 +384,9 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
         [cikti_genislik - kenar_bosluk, cikti_yukseklik - kenar_bosluk],
         [kenar_bosluk, cikti_yukseklik - kenar_bosluk]
     ])
+
+    en_iyi_warped = None
+    en_iyi_gri = None
 
     for adim in range(4):
         deneme_koseler = _rol_dondur(koseler, adim)
@@ -419,14 +397,29 @@ def belgeyi_duzlestir(resim_yolu, cikti_genislik=1000, cikti_yukseklik=1400, ken
             deneme_koseler["sol_alt"]["merkez"]
         ])
         
-        M = cv2.getPerspectiveTransform(kaynak_noktalar, hedef_noktalar)
-        warped = cv2.warpPerspective(img, M, (cikti_genislik, cikti_yukseklik))
+        # Geometrik kontrol: Kağıt dik olmalı (Yükseklik > Genişlik)
+        su = kaynak_noktalar[0]
+        sa = kaynak_noktalar[1]
+        al = kaynak_noktalar[3]
+        genislik_piksel = math.hypot(su[0] - sa[0], su[1] - sa[1])
+        yukseklik_piksel = math.hypot(su[0] - al[0], su[1] - al[1])
         
-        skor = _yon_skoru(warped, kaynak_noktalar)
-        if skor > en_iyi_skor:
-            en_iyi_skor = skor
-            en_iyi_warped = warped
-            en_iyi_gri = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        if yukseklik_piksel > genislik_piksel:
+            # Doğru yönü bulduk! (Dikdörtgen dikey duruyor)
+            M = cv2.getPerspectiveTransform(kaynak_noktalar, hedef_noktalar)
+            en_iyi_warped = cv2.warpPerspective(img, M, (cikti_genislik, cikti_yukseklik))
+            en_iyi_gri = cv2.cvtColor(en_iyi_warped, cv2.COLOR_BGR2GRAY)
+            # Moiré (ekran pikseli) yok edici
+            en_iyi_gri = cv2.GaussianBlur(en_iyi_gri, (5, 5), 0)
+            break
+
+    # Eğer her ihtimale karşı bulamazsa varsayılan ilk açıyı al
+    if en_iyi_gri is None:
+        kaynak_noktalar = np.float32([koseler["sol_ust"]["merkez"], koseler["sag_ust"]["merkez"], koseler["sag_alt"]["merkez"], koseler["sol_alt"]["merkez"]])
+        M = cv2.getPerspectiveTransform(kaynak_noktalar, hedef_noktalar)
+        en_iyi_warped = cv2.warpPerspective(img, M, (cikti_genislik, cikti_yukseklik))
+        en_iyi_gri = cv2.cvtColor(en_iyi_warped, cv2.COLOR_BGR2GRAY)
+        en_iyi_gri = cv2.GaussianBlur(en_iyi_gri, (5, 5), 0)
 
     return en_iyi_gri, en_iyi_warped
 
