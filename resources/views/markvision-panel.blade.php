@@ -71,9 +71,20 @@
                     <span class="bg-emerald-500 text-white rounded-full w-6 h-6 inline-flex items-center justify-center text-sm">✔</span>
                     MARK<span class="text-white font-light">VISION</span>
                 </div>
-                <div class="text-xs flex items-center gap-4">
-                    <span>Aktif Kullanıcı: <span id="user-display-name" class="font-bold text-white">Öğretmen</span></span>
-                    <button onclick="window.location.reload()" class="text-rose-400 hover:text-rose-300 font-bold cursor-pointer">Çıkış Yap</button>
+                <div class="relative" id="user-menu-wrapper">
+                    <button type="button" onclick="kullaniciMenusuAcKapat(event)" class="text-xs flex items-center gap-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full pl-1.5 pr-3.5 py-1.5 cursor-pointer transition">
+                        <span class="w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs" id="user-avatar-badge">Ö</span>
+                        <span class="text-slate-300">Aktif Kullanıcı: <span id="user-display-name" class="font-bold text-white">Öğretmen</span></span>
+                        <span id="user-menu-caret" class="text-slate-400 text-[9px] transition-transform">▾</span>
+                    </button>
+                    <div id="user-dropdown-menu" class="hidden absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden z-50 py-1.5">
+                        <button type="button" onclick="kullaniciMenusundenHesabimaGit()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-slate-200 hover:bg-slate-700 text-xs font-semibold cursor-pointer transition">
+                            <span class="w-5 text-blue-400">👤</span> Hesabım
+                        </button>
+                        <button type="button" onclick="window.location.reload()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-left text-rose-300 hover:bg-slate-700 text-xs font-semibold cursor-pointer transition">
+                            <span class="w-5 text-rose-400">🔑</span> Çıkış Yap
+                        </button>
+                    </div>
                 </div>
             </div>
             <!-- SEKMELER -->
@@ -84,15 +95,10 @@
                     <button onclick="sekmeDegistir('view-students')" id="nav-students" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Öğrenciler (Students)</button>
                     <button onclick="sekmeDegistir('view-answer-sheets')" id="nav-answer-sheets" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Optik Formlar (Answer Sheets)</button>
                     <button onclick="sekmeDegistir('view-gecmis')" id="nav-gecmis" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Geçmiş Sonuçlar</button>
+                    <button onclick="sekmeDegistir('view-account')" id="nav-account" class="px-5 py-3 hover:bg-slate-600 text-slate-300 rounded-t-lg transition cursor-pointer">Hesabım</button>
                 </nav>
             </div>
         </header>
-
-        <!-- BİLGİ BARI -->
-        <div class="bg-emerald-100 border-b border-emerald-200 text-emerald-800 text-xs py-2 px-6 text-center">
-            Ücretsiz hesabınızla her ay 100 kağıt okutabilirsiniz. Kalan hak: <b>100 kağıt.</b> 
-            <button class="ml-4 bg-emerald-500 text-white px-3 py-1 rounded">Sınırsız Kullanım Satın Al</button>
-        </div>
 
         <!-- İÇERİK ALANI -->
         <main class="max-w-6xl w-full mx-auto p-8 flex-1 space-y-6">
@@ -102,7 +108,7 @@
                 <h2 class="text-2xl font-light text-center text-slate-700">Tüm Sınavlar</h2>
                 <div class="flex justify-between items-center mb-4">
                     <div class="flex gap-2">
-                        <button class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer">Seçilenleri Sil</button>
+                        <button onclick="panelSinavlariSil()" class="px-3 py-1.5 bg-white border border-slate-300 text-slate-600 text-xs rounded hover:bg-slate-50 cursor-pointer">Seçilenleri Sil</button>
                         <button onclick="sekmeDegistir('view-answer-sheets')" class="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded hover:bg-emerald-700 cursor-pointer">+ Yeni Sınav / Form Oluştur</button>
                     </div>
                 </div>
@@ -110,7 +116,7 @@
                     <table class="w-full text-sm text-left">
                         <thead class="bg-[#4b5563] text-white text-xs">
                             <tr>
-                                <th class="p-3 w-10 text-center"><input type="checkbox"></th>
+                                <th class="p-3 w-10 text-center"><input type="checkbox" id="sinav-hepsi-sec" onchange="panelSinavHepsiniSecToggle(this)"></th>
                                 <th class="p-3 border-l border-slate-500">Sınıf</th>
                                 <th class="p-3 border-l border-slate-500">Sınav Adı</th>
                                 <th class="p-3 border-l border-slate-500">Tarih</th>
@@ -295,6 +301,72 @@
                 </div>
             </div>
 
+            <!-- 6. HESABIM (YENİDEN TASARLANDI) -->
+            <div id="view-account" class="sekme-icerik hidden max-w-2xl mx-auto space-y-6">
+                <h2 class="text-2xl font-light text-slate-700">Hesabım</h2>
+
+                <!-- PROFİL KARTI -->
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="bg-gradient-to-r from-[#2c3e50] to-[#34495e] p-6 flex items-center gap-4">
+                        <div id="hesap-avatar" class="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center text-2xl font-black shadow-lg ring-4 ring-white/10 shrink-0">Ö</div>
+                        <div class="min-w-0">
+                            <div id="hesap-adsoyad" class="font-bold text-white text-lg truncate">-</div>
+                            <div id="hesap-email" class="text-slate-300 text-sm truncate">-</div>
+                        </div>
+                    </div>
+                    <div class="p-4 flex justify-end">
+                        <button type="button" onclick="window.location.reload()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-xs cursor-pointer transition">
+                            <span>↩</span> Çıkış Yap
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ŞİFRE DEĞİŞTİR -->
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-slate-100 flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">🔒</span>
+                        <div>
+                            <div class="font-bold text-slate-700 text-sm">Şifre Değiştir</div>
+                            <div class="text-[11px] text-slate-400">Hesabının güvenliği için şifreni güncel tut</div>
+                        </div>
+                    </div>
+                    <div class="p-6 space-y-4 text-xs">
+                        <div>
+                            <label class="block font-semibold mb-1.5 text-slate-600">Mevcut Şifre</label>
+                            <input type="password" id="hesap-eski-sifre" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition" placeholder="••••••••">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block font-semibold mb-1.5 text-slate-600">Yeni Şifre</label>
+                                <input type="password" id="hesap-yeni-sifre" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition" placeholder="En az 6 karakter">
+                            </div>
+                            <div>
+                                <label class="block font-semibold mb-1.5 text-slate-600">Yeni Şifre (Tekrar)</label>
+                                <input type="password" id="hesap-yeni-sifre-tekrar" class="w-full border border-slate-200 rounded-lg p-2.5 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition" placeholder="••••••••">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 border-t border-slate-100 flex justify-end">
+                        <button type="button" onclick="hesapSifreDegistir()" class="px-5 py-2.5 rounded-lg bg-[#2c3e50] hover:bg-[#1a252f] text-white font-bold text-xs cursor-pointer shadow-sm shadow-slate-900/30 transition">Şifreyi Güncelle</button>
+                    </div>
+                </div>
+
+                <!-- Hesabı Sil (YENİDEN TASARLANDI) -->
+                <div class="bg-white border border-rose-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="p-5 border-b border-rose-100 flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-sm">🗑</span>
+                        <div>
+                            <div class="font-bold text-rose-700 text-sm">Hesabı Sil</div>
+                            <div class="text-[11px] text-rose-400">Bu işlem geri alınamaz</div>
+                        </div>
+                    </div>
+                    <div class="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <p class="text-xs text-slate-500 text-center sm:text-left">Hesabınızı ve verilerinizi sistemimizden kalıcı olarak silmek istiyorsanız, lütfen bu adımları izleyin ve şifrenizle onaylayın.</p>
+                        <button type="button" onclick="document.getElementById('hesabiSilModal').style.display='flex'" class="bg-rose-500 hover:bg-rose-600 text-white font-bold px-6 py-2.5 rounded-lg text-xs shadow-sm shadow-rose-500/30 cursor-pointer transition shrink-0">Hesabı Sil</button>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <footer class="bg-[#34495e] text-slate-400 text-[11px] py-8 border-t border-slate-700 mt-auto">
@@ -318,7 +390,7 @@
             </div>
             <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
                 <button type="button" onclick="modalKapat('sinifEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
-                <button type="button" onclick="sinifKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+                <button type="button" onclick="panelSinifKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
             </div>
         </div>
     </div>
@@ -341,7 +413,7 @@
             </div>
             <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
                 <button type="button" onclick="modalKapat('ogrenciEkleModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">İptal</button>
-                <button type="button" onclick="ogrenciKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
+                <button type="button" onclick="panelOgrenciKaydet()" class="px-5 py-2 rounded bg-blue-600 text-white font-bold text-xs">Kaydet</button>
             </div>
         </div>
     </div>
@@ -432,6 +504,27 @@
         </div>
     </div>
 
+    <!-- MODAL: Hesabı Sil (YENİ EKLENDİ) -->
+    <div class="modal-bg" id="hesabiSilModal" style="z-index: 10000;">
+        <div class="modal-content max-w-sm" style="animation: onayModalGiris .15s ease-out;">
+            <div class="bg-slate-100 p-4 border-b font-bold text-slate-700 text-sm flex justify-between items-center">
+                <span>Hesabı Sil</span>
+                <button type="button" onclick="modalKapat('hesabiSilModal')" class="cursor-pointer text-lg font-bold">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-xs">
+                <p class="text-rose-600 font-semibold">Bu işlem geri alınamaz. Hesabınız ve tüm sınav / sınıf / öğrenci verileriniz kalıcı olarak silinecek.</p>
+                <div>
+                    <label class="block font-semibold mb-1 text-slate-600">Şifreniz</label>
+                    <input type="password" id="hesabi-sil-sifre" class="w-full border rounded p-2 text-xs bg-white" placeholder="••••••••">
+                </div>
+            </div>
+            <div class="bg-slate-50 p-4 border-t flex justify-end gap-2">
+                <button type="button" onclick="modalKapat('hesabiSilModal')" class="px-4 py-2 border rounded bg-white text-slate-600 text-xs font-semibold">Vazgeç</button>
+                <button type="button" onclick="hesabiSilOnayla()" class="px-5 py-2 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs">Evet, Kalıcı Olarak Sil</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: Soru Ekleme -->
     <div class="modal-bg" id="soruEkleModal">
         <div class="modal-content">
@@ -457,6 +550,7 @@
         const loginScreen = document.getElementById('login-screen');
         const mainDashboard = document.getElementById('main-dashboard');
         const mainBody = document.getElementById('main-body');
+        let girisYapanKullanici = null; // YENİ EKLENDİ: Hesabım sekmesi için giriş yapan kullanıcının bilgileri
 
         document.getElementById('btnSifreGoster').addEventListener('click', () => {
             const inp = document.getElementById('password');
@@ -476,15 +570,54 @@
                 mainDashboard.classList.remove('hidden');
                 mainBody.className = "bg-[#f8fafc] text-slate-800 min-h-screen transition-all duration-500";
                 document.getElementById('user-display-name').textContent = data.user.ad;
-                // Panel açılır açılmaz sınıf/öğrenci listelerini gerçek veritabanından çekiyoruz
-                siniflariGetirVeDoldur();
-                ogrencileriGetirVeDoldur();
+                // YENİ EKLENDİ: Üst bardaki rozette kullanıcının ilk harfini göster
+                const avatarBadge = document.getElementById('user-avatar-badge');
+                if (avatarBadge) avatarBadge.textContent = (data.user.ad || '?').trim().charAt(0).toUpperCase();
+                // YENİ EKLENDİ: Hesabım sekmesinde göstermek için kullanıcı bilgisini sakla
+                girisYapanKullanici = data.user;
+                const hesapAdSoyad = document.getElementById('hesap-adsoyad');
+                const hesapEmail = document.getElementById('hesap-email');
+                const hesapAvatar = document.getElementById('hesap-avatar');
+                const fullName = [data.user.ad, data.user.soyad].filter(Boolean).join(' ') || '-';
+                if (hesapAdSoyad) hesapAdSoyad.textContent = fullName;
+                if (hesapEmail) hesapEmail.textContent = data.user.email || '-';
+                if (hesapAvatar) hesapAvatar.textContent = (data.user.ad || '?').trim().charAt(0).toUpperCase();
+                // Panel açılır açılmaz sınav/sınıf/öğrenci listelerini SADECE bu
+                // öğretmene ait şekilde (panel* uçları, Auth::id() ile filtreli)
+                // gerçek veritabanından çekiyoruz.
+                panelSinavlariDoldur();
+                panelSiniflariDoldur();
+                panelOgrencileriDoldur();
             } else {
                 const err = document.getElementById('login-error');
                 err.textContent = data.message;
                 err.classList.remove('hidden');
             }
         });
+
+        // YENİ EKLENDİ: Üst bardaki "Aktif Kullanıcı" rozetine tıklanınca açılan menü
+        function kullaniciMenusuAcKapat(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('user-dropdown-menu');
+            const caret = document.getElementById('user-menu-caret');
+            const acik = !menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', acik);
+            if (caret) caret.style.transform = acik ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+        document.addEventListener('click', function (e) {
+            const wrapper = document.getElementById('user-menu-wrapper');
+            const menu = document.getElementById('user-dropdown-menu');
+            if (!wrapper || !menu || menu.classList.contains('hidden')) return;
+            if (!wrapper.contains(e.target)) {
+                menu.classList.add('hidden');
+                const caret = document.getElementById('user-menu-caret');
+                if (caret) caret.style.transform = 'rotate(0deg)';
+            }
+        });
+        function kullaniciMenusundenHesabimaGit() {
+            document.getElementById('user-dropdown-menu').classList.add('hidden');
+            sekmeDegistir('view-account');
+        }
 
         function sekmeDegistir(hedefId) {
             document.querySelectorAll('.sekme-icerik').forEach(el => el.classList.add('hidden'));
@@ -503,15 +636,16 @@
             if(hedefId === 'view-gecmis') {
                 gecmisTablosunuDoldur();
             }
-            // Sınıflar / Öğrenciler sekmeleri seçilirse gerçek veritabanından tazele
+            // Sınıflar / Öğrenciler / Sınavlar sekmeleri seçilirse SADECE bu
+            // öğretmene ait kayıtları (panel* uçları) gerçek veritabanından tazele
             if(hedefId === 'view-classes') {
-                siniflariGetirVeDoldur();
+                panelSiniflariDoldur();
             }
             if(hedefId === 'view-students') {
-                ogrencileriGetirVeDoldur();
+                panelOgrencileriDoldur();
             }
             if(hedefId === 'view-quizzes') {
-                sinavlariGetirVeDoldur();
+                panelSinavlariDoldur();
             }
         }
 
@@ -789,7 +923,7 @@ async function hizliSinavOlustur(examName, soruSayisi, sikHarfleri, haneSayisi) 
         const d = await res.json();
 
         if (!d.success) {
-            alert("⚠️ " + (d.message || "Form üretilemedi."));
+            bilgiGoster("⚠️ " + (d.message || "Form üretilemedi."));
             return;
         }
 
@@ -797,7 +931,7 @@ async function hizliSinavOlustur(examName, soruSayisi, sikHarfleri, haneSayisi) 
         dosyaIndir(d.koordinat_url, `${examName}_koordinat.json`);
 
     } catch (err) {
-        alert("⚠️ Sunucuya bağlanılamadı: " + err.message);
+        bilgiGoster("⚠️ Sunucuya bağlanılamadı: " + err.message);
     }
 }
 
@@ -830,7 +964,7 @@ async function publisFormuKaydet() {
 
     const farkliEtiketVarMi = sihirbazSorular.some(b => b.etiket !== sihirbazSorular[0].etiket);
     if (farkliEtiketVarMi) {
-        alert("⚠️ Şu an bir sınavdaki TÜM soruların aynı şık sayısında olması gerekiyor (ör. hepsi ABCDE). Lütfen tüm blokları aynı şık düzeniyle oluşturun.");
+        bilgiGoster("Şu an bir sınavdaki TÜM soruların aynı şık sayısında olması gerekiyor (ör. hepsi ABCDE). Lütfen tüm blokları aynı şık düzeniyle oluşturun.");
         return;
     }
     const sikHarfleri = sihirbazSorular[0].etiket;
@@ -864,17 +998,17 @@ async function publisFormuKaydet() {
         const d = await res.json();
 
         if (!d.success) {
-            alert("⚠️ " + (d.message || "Sınav kaydedilemedi."));
+            bilgiGoster("⚠️ " + (d.message || "Sınav kaydedilemedi."));
             return;
         }
 
-        alert("✓ Cevap Kağıdı Başarıyla Yayınlandı! Form indiriliyor...");
+        bilgiGoster("Cevap Kağıdı Başarıyla Yayınlandı! Form indiriliyor...", 'basari');
         sekmeDegistir('view-quizzes');
         dosyaIndir(d.form_url, `${formAdi}.pdf`);
         dosyaIndir(d.koordinat_url, `${formAdi}_koordinat.json`);
 
     } catch (err) {
-        alert("⚠️ Sunucuya bağlanılamadı: " + err.message);
+        bilgiGoster("⚠️ Sunucuya bağlanılamadı: " + err.message);
     }
 }
 async function sinavlariGetirVeDoldur() {
@@ -1316,6 +1450,61 @@ let _onayModalCozumle = null;
                     panelSiniflariDoldur(); // sınıfın öğrenci sayısı değişti
                 } else {
                     bilgiGoster(d.message || "Öğrenci eklenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        // YENİ EKLENDİ: Hesabım sekmesindeki "Şifreyi Güncelle" butonu.
+        // Zaten var olan /panel/sifre-degistir (panel.sifredegistir) ucunu kullanır.
+        async function hesapSifreDegistir() {
+            const eski = document.getElementById('hesap-eski-sifre').value;
+            const yeni = document.getElementById('hesap-yeni-sifre').value;
+            const tekrar = document.getElementById('hesap-yeni-sifre-tekrar').value;
+
+            if (!eski || !yeni || !tekrar) { bilgiGoster("Lütfen tüm alanları doldurun."); return; }
+            if (yeni.length < 6) { bilgiGoster("Yeni şifre en az 6 karakter olmalı."); return; }
+            if (yeni !== tekrar) { bilgiGoster("Yeni şifreler birbiriyle eşleşmiyor."); return; }
+
+            try {
+                const res = await fetch("{{ route('panel.sifredegistir') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ eski_sifre: eski, yeni_sifre: yeni })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    document.getElementById('hesap-eski-sifre').value = "";
+                    document.getElementById('hesap-yeni-sifre').value = "";
+                    document.getElementById('hesap-yeni-sifre-tekrar').value = "";
+                    bilgiGoster("Şifreniz başarıyla güncellendi.", 'basari');
+                } else {
+                    bilgiGoster(d.message || "Şifre güncellenemedi.");
+                }
+            } catch (err) {
+                bilgiGoster("Bağlantı hatası: " + err.message);
+            }
+        }
+
+        // YENİ EKLENDİ: "Hesabı Sil" modalındaki onay butonu.
+        // Şifre doğrulaması sunucu tarafında (panel.hesabisil) yapılır.
+        async function hesabiSilOnayla() {
+            const sifre = document.getElementById('hesabi-sil-sifre').value;
+            if (!sifre) { bilgiGoster("Lütfen şifrenizi girin."); return; }
+
+            try {
+                const res = await fetch("{{ route('panel.hesabisil') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ sifre: sifre })
+                });
+                const d = await res.json();
+                if (d.success) {
+                    modalKapat('hesabiSilModal');
+                    window.location.reload();
+                } else {
+                    bilgiGoster(d.message || "Hesap silinemedi.");
                 }
             } catch (err) {
                 bilgiGoster("Bağlantı hatası: " + err.message);

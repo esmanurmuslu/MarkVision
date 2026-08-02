@@ -104,6 +104,10 @@ Route::post('/register', [MarkVisionController::class, 'registerStore'])
 Route::post('/panel/sifre-degistir', [MarkVisionController::class, 'sifreDegistir'])
     ->name('panel.sifredegistir');
 
+// Hesabı Sil (YENİ EKLENDİ)
+Route::post('/panel/hesabi-sil', [MarkVisionController::class, 'hesabiSil'])
+    ->name('panel.hesabisil');
+
 /*
 |--------------------------------------------------------------------------
 | OBS MODÜLÜ

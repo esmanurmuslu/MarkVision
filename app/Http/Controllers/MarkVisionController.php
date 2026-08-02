@@ -19,7 +19,7 @@ use App\Models\Obs\ExamResult as ObsExamResult;
 
 class MarkVisionController extends Controller
 {
-   private string $pythonPath = 'python';
+   private string $pythonPath = 'C:\\Users\\SUDE\\AppData\\Local\\Programs\\Python\\Python313\\python.exe';
 
     private const AKTIF_SINAV_SESSION_KEY = 'aktif_sinav_id';
 
@@ -34,12 +34,22 @@ class MarkVisionController extends Controller
             $teacher = \App\Models\User::where('email', $request->email)->first();
 
             if ($teacher && \Illuminate\Support\Facades\Hash::check($request->password, $teacher->password)) {
-                
+
+                // --- YENİ EKLENDİ: oturumu gerçekten açıyoruz ---
+                // Bu satır olmadan Auth::check() / Auth::id() panel* (Sınıflar,
+                // Öğrenciler, Sınavlar -> "her öğretmen sadece kendi kaydını görsün")
+                // uçlarında hep boş/401 dönüyordu; login() JSON success döndürse bile
+                // session'da kimse "giriş yapmış" sayılmıyordu.
+                Auth::login($teacher);
+
                 // --- GİRİŞ BAŞARILI DÖNÜŞÜ ---
                 return response()->json([
                     'success' => true,
                     'user' => [
                         'ad' => $teacher->name,
+                        // YENİ EKLENDİ: Hesabım sekmesinde ad soyad + e-posta gösterebilmek için
+                        'soyad' => $teacher->surname ?? null,
+                        'email' => $teacher->email ?? null,
                         'rol' => 'Öğretmen / Akademisyen',
                     ]
                 ]);
@@ -103,6 +113,36 @@ class MarkVisionController extends Controller
         $user->save();
 
         return response()->json(['success' => true]);
+    }
+
+    // Hesabı Sil (YENİ EKLENDİ) — öğretmen şifresini doğrulayarak kendi hesabını
+    // ve SADECE kendine ait verileri (sınavlar/sınıflar/öğrenciler) kalıcı
+    // olarak siler. Başka bir öğretmenin kaydına asla dokunmaz.
+    public function hesabiSil(Request $request)
+    {
+        if ($hata = $this->panelYetkiKontrol()) return $hata;
+
+        $request->validate(['sifre' => 'required']);
+
+        $user = Auth::user();
+
+        if (!Hash::check($request->input('sifre'), $user->password)) {
+            return response()->json(['success' => false, 'message' => 'Şifre yanlış.'], 422);
+        }
+
+        $teacherId = $user->id;
+
+        DB::table('panel_students')->where('teacher_id', $teacherId)->delete();
+        DB::table('siniflar')->where('teacher_id', $teacherId)->delete();
+        Sinav::where('teacher_id', $teacherId)->delete();
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        DB::table('teachers')->where('id', $teacherId)->delete();
+
+        return response()->json(['success' => true, 'message' => 'Hesabınız kalıcı olarak silindi.']);
     }
 
     public function showRegister()
@@ -252,6 +292,14 @@ class MarkVisionController extends Controller
             $sinav->cevap_anahtari = $request->input('answers');
             $sinav->obs_exam_id = $obsExamId;
             $sinav->question_weights = $request->input('question_weights'); // YENİ EKLENDİ
+            // YENİ EKLENDİ: teacher_id atanmıyordu, bu yüzden "Sınavlar" sekmesi
+            // (panelSinavlariGetir -> Sinav::where('teacher_id', Auth::id())) yeni
+            // oluşturulan sınavı asla göremiyordu -- kayıt teacher_id=null olarak
+            // düşüyordu. Sadece oturum açıkken (web panelinden) atanır; mobil/
+            // stateless istekte Auth::id() zaten null döner, orada davranış değişmez.
+            if (Auth::check()) {
+                $sinav->teacher_id = Auth::id();
+            }
 
             try {
                 $sinav->save();
