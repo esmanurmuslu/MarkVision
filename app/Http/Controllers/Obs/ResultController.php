@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Obs;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Obs\ExamResult;
+use App\Models\Obs\Student; // EKLENDİ: Öğrenciyi sorgulamak için gerekli
 
 class ResultController extends Controller
 {
@@ -29,7 +30,39 @@ class ResultController extends Controller
         return view('obs.results.show', compact('result'));
     }
 
-    // YENİ EKLENEN METOT
+    // YENİ EKLENEN METOT: Optikten gelen sonuçları kaydetme
+    public function store(Request $request)
+    {
+        // Gelen verileri doğrula (Senin yapına göre doğru/yanlış/boş sayılarını da ekledik)
+        $request->validate([
+            'student_no'    => 'required|string',
+            'exam_id'       => 'required|integer',
+            'score'         => 'required|numeric',
+            'correct_count' => 'nullable|integer',
+            'wrong_count'   => 'nullable|integer',
+            'blank_count'   => 'nullable|integer',
+        ]);
+
+        // Öğrenci numarasından OBS'deki öğrenciyi bul
+        $student = Student::where('student_no', $request->student_no)->first();
+
+        // Öğrenci sistemde varsa kaydı oluştur
+        if ($student) {
+            $student->examResults()->create([
+                'exam_id'       => $request->exam_id,
+                'score'         => $request->score,
+                'correct_count' => $request->correct_count ?? 0,
+                'wrong_count'   => $request->wrong_count ?? 0,
+                'blank_count'   => $request->blank_count ?? 0,
+                'status'        => $request->status ?? 'pending' // Başlangıç durumu, onaya düşmesi için
+            ]);
+
+            return response()->json(['mesaj' => 'Optik sonuç OBS sistemine başarıyla işlendi!'], 200);
+        }
+
+        return response()->json(['hata' => 'Öğrenci numarası OBS sisteminde bulunamadı.'], 404);
+    }
+
     public function approve(ExamResult $result)
     {
         $result->update([

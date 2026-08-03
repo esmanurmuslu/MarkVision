@@ -5,15 +5,24 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\MarkVisionController;
 use App\Http\Controllers\Obs\ExamController;
+use App\Http\Controllers\Obs\ResultController; // EKLENDİ: Optik sonuç kaydetme işlemleri için
 
 // Kullanıcı bilgisi
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// OBS Sınav Rotaları
+
+// =================================================================
+// OBS (ÖĞRENCİ BİLGİ SİSTEMİ) ROTALARI
+// =================================================================
 Route::post('/exams/evaluate', [ExamController::class, 'evaluate']);
 Route::get('/exams/{id}/results', [ExamController::class, 'results']);
+
+// YENİ EKLENEN ROTA: Optik uygulamasından gelen sonuçları OBS'ye kaydeder.
+// (Mobil uygulaman istek atarken endpoint olarak: /api/obs/optik-kaydet kullanmalıdır)
+Route::post('/obs/optik-kaydet', [ResultController::class, 'store']);
+
 
 // =================================================================
 // MARKVISION MOBİL UYGULAMA ROTALARI (v1)

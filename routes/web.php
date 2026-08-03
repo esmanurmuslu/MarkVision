@@ -182,6 +182,10 @@ Route::prefix('obs')
             Route::post('/api/optical-scan', [ObsController::class, 'storeOpticalScan'])
                 ->name('scan');
 
+            // YENİ EKLENEN ROTA: Optik sonuçlarını web paneli/cihazlar üzerinden doğrudan OBS'ye işler
+            Route::post('/optik-kaydet', [ResultController::class, 'store'])
+                ->name('optik.kaydet');
+
             /*
             |--------------------------------------------------------------------------
             | Cevap Anahtarı
