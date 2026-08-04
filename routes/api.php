@@ -77,3 +77,13 @@ Route::patch('/v1/students/{id}', [MarkVisionController::class, 'apiOgrenciGunce
 Route::delete('/v1/classes/{id}', [MarkVisionController::class, 'apiSinifSil']);
 Route::get('/exams', [App\Http\Controllers\MarkVisionController::class, 'apiSinavlariGetir']);
 Route::get('/v1/exams', [App\Http\Controllers\MarkVisionController::class, 'apiSinavlariGetir']);
+
+// YENİ EKLENDİ: Optik okuma sonrası sonucu OBS'ye aktarma (obsKaydet) ve
+// OBS Sınavı dropdown'ını dolduran liste (obsSinavlariGetir) mobil
+// tarafta /api/v1 önekiyle çağrılıyor ama bu grupta hiç tanımlı değildi
+// -- bu yüzden "route not found" alınıyordu.
+Route::post('/obs-kaydet', [MarkVisionController::class, 'obsKaydet']);
+Route::post('/v1/obs-kaydet', [MarkVisionController::class, 'obsKaydet']);
+
+Route::get('/obs-sinavlari', [MarkVisionController::class, 'obsSinavlariGetir']);
+Route::get('/v1/obs-sinavlari', [MarkVisionController::class, 'obsSinavlariGetir']);
