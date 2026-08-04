@@ -17,6 +17,7 @@
 
         <form method="POST" action="{{ route('obs.exams.answerkey.save',$exam->id) }}">
             @csrf
+            <input type="hidden" name="exam_id" value="{{ $exam->id }}">
 
             @php
                 $answers = $exam->answer_key ?? [];
@@ -39,7 +40,7 @@
                                 <input
                                     class="form-check-input"
                                     type="radio"
-                                    name="q{{ $i }}"
+                                    name="answers[{{ $i }}]"
                                     value="{{ $option }}"
                                     {{ (($answers[$i] ?? '') == $option) ? 'checked' : '' }}>
 

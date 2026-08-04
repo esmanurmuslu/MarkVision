@@ -168,7 +168,7 @@ class ExamController extends Controller
         $exam = Exam::findOrFail($request->exam_id);
 
         $exam->update([
-            'cevap_anahtari' => $answers
+            'answer_key' => $answers
         ]);
 
         return response()->json([
