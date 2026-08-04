@@ -552,7 +552,7 @@
         const loginScreen = document.getElementById('login-screen');
         const mainDashboard = document.getElementById('main-dashboard');
         const mainBody = document.getElementById('main-body');
-        let girisYapanKullanici = null; // YENİ EKLENDİ: Hesabım sekmesi için giriş yapan kullanıcının bilgileri
+        let girisYapanKullanici = null; 
 
         document.getElementById('btnSifreGoster').addEventListener('click', () => {
             const inp = document.getElementById('password');
@@ -572,10 +572,10 @@
                 mainDashboard.classList.remove('hidden');
                 mainBody.className = "bg-[#f8fafc] text-slate-800 min-h-screen transition-all duration-500";
                 document.getElementById('user-display-name').textContent = data.user.ad;
-                // YENİ EKLENDİ: Üst bardaki rozette kullanıcının ilk harfini göster
+                
                 const avatarBadge = document.getElementById('user-avatar-badge');
                 if (avatarBadge) avatarBadge.textContent = (data.user.ad || '?').trim().charAt(0).toUpperCase();
-                // YENİ EKLENDİ: Hesabım sekmesinde göstermek için kullanıcı bilgisini sakla
+                
                 girisYapanKullanici = data.user;
                 const hesapAdSoyad = document.getElementById('hesap-adsoyad');
                 const hesapEmail = document.getElementById('hesap-email');
@@ -584,9 +584,7 @@
                 if (hesapAdSoyad) hesapAdSoyad.textContent = fullName;
                 if (hesapEmail) hesapEmail.textContent = data.user.email || '-';
                 if (hesapAvatar) hesapAvatar.textContent = (data.user.ad || '?').trim().charAt(0).toUpperCase();
-                // Panel açılır açılmaz sınav/sınıf/öğrenci listelerini SADECE bu
-                // öğretmene ait şekilde (panel* uçları, Auth::id() ile filtreli)
-                // gerçek veritabanından çekiyoruz.
+                
                 panelSinavlariDoldur();
                 panelSiniflariDoldur();
                 panelOgrencileriDoldur();
@@ -597,7 +595,6 @@
             }
         });
 
-        // YENİ EKLENDİ: Üst bardaki "Aktif Kullanıcı" rozetine tıklanınca açılan menü
         function kullaniciMenusuAcKapat(event) {
             if (event) event.stopPropagation();
             const menu = document.getElementById('user-dropdown-menu');
@@ -634,12 +631,10 @@
                 aktifBtn.className = "px-5 py-3 bg-slate-100 text-slate-800 font-bold rounded-t-lg transition cursor-pointer";
             }
             
-            // Geçmiş sekmesi seçilirse tabloyu doldur
             if(hedefId === 'view-gecmis') {
                 gecmisTablosunuDoldur();
             }
-            // Sınıflar / Öğrenciler / Sınavlar sekmeleri seçilirse SADECE bu
-            // öğretmene ait kayıtları (panel* uçları) gerçek veritabanından tazele
+            
             if(hedefId === 'view-classes') {
                 panelSiniflariDoldur();
             }
@@ -676,12 +671,6 @@
         function ogrenciEkleModalAc() { document.getElementById('ogrenciEkleModal').style.display = 'flex'; }
         function modalKapat(id) { document.getElementById(id).style.display = 'none'; }
 
-        // =====================================================================
-        // SINIFLAR: Web panel ile mobil uygulama artık AYNI /api/v1/classes
-        // uç noktasını kullanıyor. Önceden bu sekme tamamen sahteydi (sadece
-        // ekrana bir <tr> ekliyordu, veritabanına hiç yazmıyordu); bu yüzden
-        // mobilde görünen sınıflarla web panelinde görünenler tutarsızdı.
-        // =====================================================================
         let apiSiniflarCache = [];
 
         async function siniflariGetirVeDoldur() {
@@ -750,12 +739,6 @@
             }
         }
 
-        // =====================================================================
-        // ÖĞRENCİLER: Aynı şekilde artık /api/v1/students uç noktasına bağlı.
-        // NOT: 'students' tablosunun gerçek kolon adlarını (name/student_no/
-        // class_id) migration dosyanızdan teyit edin; farklıysa hem burada
-        // hem MarkVisionController::apiOgrenciKaydet()'te güncelleyin.
-        // =====================================================================
         async function ogrencileriGetirVeDoldur() {
             const tbody = document.getElementById('ogrenci-tablo-govde');
             try {
@@ -805,11 +788,9 @@
             }
         }
 
-        // Özellikle OBS'den sadece numarasıyla aktarılmış, adı boş kalmış
-        // öğrencilerin ismini hızlıca girebilmek için basit bir prompt.
         async function ogrenciDuzenle(id, mevcutAd) {
             const yeniAd = prompt('Öğrencinin adı soyadı:', mevcutAd === 'İsimsiz' ? '' : mevcutAd);
-            if (yeniAd === null) return; // iptal
+            if (yeniAd === null) return; 
             if (!yeniAd.trim()) return alert('İsim boş olamaz.');
             try {
                 const res = await fetch(`/api/v1/students/${id}`, {
@@ -836,7 +817,6 @@
             document.getElementById(`adim-${aktifAdim}`).classList.remove('hidden');
             document.getElementById('sihirbaz-baslik').textContent = `Adım ${aktifAdim} / 6: ${adimBasligiGetir(aktifAdim)}`;
             
-            // C KİŞİSİ GÖREVİ: 5. Adım (Cevap Anahtarı) açıldığında dinamik radioları kur
             if (aktifAdim === 5) {
                 cevapAnahtariArayuzunuOlustur();
             }
@@ -860,7 +840,6 @@
             if(a===6) return "Önizleme ve Yayınla";
         }
 
-        // C KİŞİSİ GÖREVİ: Dinamik Cevap Anahtarı Arayüzü Üretici (Otomatik A ataması kaldırıldı)
         function cevapAnahtariArayuzunuOlustur() {
             const container = document.getElementById('cevap-anahtari-container');
             if(!container) return;
@@ -915,14 +894,6 @@
             modalKapat('soruEkleModal');
         });
 
-
-// =============================================================================
-// Artık PDF ile koordinat haritası JS'de değil, sunucuda (omr_form_geometry.py
-// tabanlı sablon_uret.py + koordinat_uretici.py) üretiliyor. Bu, form ile
-// okuma haritasının HER ZAMAN piksel-hassasiyetinde örtüşmesini garanti eder
-// -- JS'nin ayrı bir mm/px matematiği bir daha asla olmayacak.
-// =============================================================================
-
 function dosyaIndir(url, dosyaAdi) {
     if (!url) return;
     const a = document.createElement('a');
@@ -962,8 +933,7 @@ async function hizliSinavOlustur(examName, soruSayisi, sikHarfleri, haneSayisi) 
         }
 
         dosyaIndir(d.form_url, `${examName}.pdf`);
-        dosyaIndir(d.koordinat_url, `${examName}_koordinat.json`);
-
+        // JSON dosya indirme tamamen KALDIRILDI
     } catch (err) {
         bilgiGoster("⚠️ Sunucuya bağlanılamadı: " + err.message);
     }
@@ -984,7 +954,6 @@ async function publisFormuKaydet() {
     const hasId = document.getElementById('wiz_has_student_id').checked;
     const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 9;
 
-    // C KİŞİSİ GÖREVİ: Ceza katsayısını panelden alıyoruz
     const penaltyCoef = parseFloat(document.getElementById('wiz_penalty_coef')?.value) || 0;
 
     const gosterAdSoyad = document.getElementById('box_name')?.checked ?? true;
@@ -1006,7 +975,6 @@ async function publisFormuKaydet() {
     let sayac = 1;
     sihirbazSorular.forEach(blok => {
         for (let i = 0; i < blok.adet; i++) {
-            // C KİŞİSİ GÖREVİ: Radio butonlarından öğretmenin seçtiği gerçek cevabı alıyoruz
             const radyoSecim = document.querySelector(`input[name="dogru_cevap_${sayac}"]:checked`);
             answers[sayac] = radyoSecim ? radyoSecim.value : blok.etiket.charAt(0);
             question_weights[sayac] = blok.puan;
@@ -1040,7 +1008,7 @@ async function publisFormuKaydet() {
         bilgiGoster("Cevap Kağıdı Başarıyla Yayınlandı! Form indiriliyor...", 'basari');
         sekmeDegistir('view-quizzes');
         dosyaIndir(d.form_url, `${formAdi}.pdf`);
-        dosyaIndir(d.koordinat_url, `${formAdi}_koordinat.json`);
+        // JSON dosya indirme tamamen KALDIRILDI
 
     } catch (err) {
         bilgiGoster("⚠️ Sunucuya bağlanılamadı: " + err.message);
@@ -1324,106 +1292,6 @@ let _onayModalCozumle = null;
             }
         }
 
-        function orijinalOptikFormOlustur(fileName, bloklar, haneSayisi = 5, format = 'pdf') {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a4');
-            
-            // 4 Köşe Siyah Referans Kareleri (Büyütülmüş: 9x9)
-            doc.setFillColor(0, 0, 0);
-            doc.rect(14, 14, 9, 9, 'F'); doc.rect(187, 14, 9, 9, 'F');
-            doc.rect(14, 274, 9, 9, 'F'); doc.rect(187, 274, 9, 9, 'F');
-            
-            // Sol Dikey MarkVISION Yazısı
-            doc.setFontSize(14); doc.setFont("helvetica", "bold"); doc.text("MARKVISION", 17, 170, { angle: 90 });
-
-            // Üst Bilgi Kutusu
-            doc.setLineWidth(0.4);
-            doc.roundedRect(25, 14, 158, 14, 2, 2, 'S');
-            doc.line(25, 21, 183, 21); doc.line(135, 14, 135, 28); doc.line(95, 21, 95, 28);
-            doc.setFontSize(7.5); 
-            doc.text("Ad Soyad:", 27, 18); doc.text("Sinif:", 27, 25);
-            doc.text("Sinav Adi:", 97, 25); doc.text("Tarih:", 137, 18);
-
-            // ÖĞRENCİ NO MATRİSİ
-            if (haneSayisi > 0) {
-                let idStartX = 25; let idStartY = 31;
-                doc.setFontSize(7.5); doc.setFont("helvetica", "bold");
-                doc.text("Ogrenci No (Student ID)", idStartX, idStartY);
-                doc.setFont("helvetica", "normal");
-                doc.setLineWidth(0.2);
-                
-                for(let i=0; i<haneSayisi; i++) {
-                    let colX = idStartX + (i * 10.5); 
-                    doc.rect(colX, idStartY + 2.5, 7.5, 3.8); 
-                    for(let j=0; j<=9; j++) {
-                        let bY = idStartY + 10.0 + (j * 4.2); 
-                        doc.circle(colX + 3.75, bY, 1.9); 
-                        doc.setFontSize(4.5); 
-                        doc.text(j.toString(), colX + 2.5, bY + 0.7);
-                    }
-                }
-            }
-
-            // SORULAR BÖLÜMÜ
-            let soruSayaci = 1;
-            let startX = 25; 
-            let startY = haneSayisi > 0 ? 88 : 38; 
-            let colWidth = 56; 
-            let maxPerColumn = 34; 
-
-            doc.setFontSize(8.5);
-            bloklar.forEach(blok => {
-                let labels = blok.etiket.split('');
-                for(let k=0; k<blok.adet; k++) {
-                    let i = soruSayaci;
-                    let colIndex = Math.floor((i - 1) / maxPerColumn);
-                    let rowIndex = (i - 1) % maxPerColumn;
-
-                    let qX = startX + (colIndex * colWidth);
-                    let qY = startY + (rowIndex * 5.3); 
-
-                    if (qY > 265 || colIndex >= 3) {
-                        if (colIndex >= 3 && qY > 265) {
-                            doc.addPage();
-                            doc.setFillColor(0, 0, 0);
-                            doc.rect(14, 14, 9, 9, 'F'); doc.rect(187, 14, 9, 9, 'F');
-                            doc.rect(14, 274, 9, 9, 'F'); doc.rect(187, 274, 9, 9, 'F');
-                            qY = 35;
-                        }
-                    }
-
-                    doc.setFont("helvetica", "bold");
-                    doc.text(i.toString() + ".", qX, qY);
-
-                    labels.forEach((harf, idx) => {
-                        let bx = qX + 9 + (idx * 5.8); 
-                        doc.circle(bx, qY - 1, 2.3); 
-                        doc.setFontSize(5.0); doc.setFont("helvetica", "normal");
-                        doc.text(harf, bx - 0.8, qY + 0.4);
-                    });
-                    soruSayaci++;
-                }
-            });
-
-            if (format === 'png') {
-                const pdfData = doc.output('datauristring');
-                const newWindow = window.open();
-                newWindow.document.write(`
-                    <html>
-                        <head><title>${fileName} - Önizleme</title></head>
-                        <body style="margin:0; background:#555; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh;">
-                            <div style="background:white; padding:10px; margin-bottom:10px; border-radius:5px; font-family:sans-serif; font-size:14px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-                                💡 <b>İpucu:</b> Bu sayfadaki forma sağ tıklayıp <b>"Resmi Farklı Kaydet"</b> diyerek veya ekran görüntüsü alarak hemen <b>test.jpg / test.png</b> olarak \`omr_scripts\` klasörüne kaydedebilirsiniz!
-                            </div>
-                            <iframe src="${pdfData}" style="width:800px; height:90vh; border:none; border-radius:4px; box-shadow:0 10px 25px rgba(0,0,0,0.5);"></iframe>
-                        </body>
-                    </html>
-                `);
-            } else {
-                doc.save(fileName + ".pdf");
-            }
-        }
-
         async function panelSinifKaydet() {
             const ad = document.getElementById('yeni_sinif_adi').value;
             if(!ad) { bilgiGoster("Sınıf adı giriniz!"); return; }
@@ -1462,7 +1330,7 @@ let _onayModalCozumle = null;
                     modalKapat('ogrenciEkleModal');
                     document.getElementById('yeni_ogr_no').value = ""; document.getElementById('yeni_ogr_ad').value = "";
                     panelOgrencileriDoldur();
-                    panelSiniflariDoldur(); // sınıfın öğrenci sayısı değişti
+                    panelSiniflariDoldur(); 
                 } else {
                     bilgiGoster(d.message || "Öğrenci eklenemedi.");
                 }

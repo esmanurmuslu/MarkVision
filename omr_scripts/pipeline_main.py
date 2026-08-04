@@ -51,16 +51,13 @@ CEZA_KATSAYISI = 0
 
 
 def _akilli_rakam_sec(img_gri, secenekler, yaricap=12, min_taban=0.25):
-    """
-    Kamera çekimlerindeki hafif kaymaları ve gölgeleri bertaraf etmek için 
-    yarıçap (yaricap=12) biraz büyütüldü ve güvenli taban esnetildi.
-    """
     en_iyi_rakam = "?"
     en_yuksek_oran = 0.0
 
     for rakam_str, merkez in secenekler.items():
-        # Yarıçapı 12 yaparak dairenin sınırlarındaki hafif oynamaları da kapsıyoruz
-        oran = kabarcik_doluluk_orani(img_gri, merkez, yaricap=12)
+        # Sabit 12 yerine, fonksiyona gönderilen 'yaricap' parametresini kullanıyoruz.
+        # min_taban'ı da biraz düşürelim ki silik kalemleri de daha rahat görsün.
+        oran = kabarcik_doluluk_orani(img_gri, merkez, yaricap=yaricap)
         if oran > en_yuksek_oran:
             en_yuksek_oran = oran
             en_iyi_rakam = rakam_str
@@ -81,7 +78,9 @@ def ogrenci_no_oku(img_gri, harita):
         secenekler = harita["ogrenci_no"][basamak_adi]
         secenekler = {k: tuple(v) for k, v in secenekler.items()}
         
-        rakam = _akilli_rakam_sec(img_gri, secenekler, yaricap=9)
+        # Yarıçapı 14'e çıkardık. Kağıt eğrilse/kaysa bile geniş alanda arayacak.
+        # Ayrıca min_taban=0.15 ekleyerek silik baskıları/kalemleri tolere ediyoruz.
+        rakam = _akilli_rakam_sec(img_gri, secenekler, yaricap=14, min_taban=0.15)
         
         # Eğer bu sütun boşsa ('?') ve biz zaten en az 2-3 hane okuduysak, 
         # öğrencinin numarası bitmiş demektir; sağdaki boş sütunları okumayı bırak!

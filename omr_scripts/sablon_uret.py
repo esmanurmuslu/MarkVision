@@ -99,13 +99,21 @@ def ogrenci_no_ciz(c: canvas.Canvas, id_plani: dict):
         for rakam_str, (x, y) in rakamlar.items():
             c.setStrokeColorRGB(0, 0, 0)
             c.circle(X(x), Y(y), r * mm, fill=0, stroke=1)
-            c.setFont("Helvetica", 5)
-            c.drawCentredString(X(x), Y(y) - 1.6, rakam_str)
+            
+            # --- CANVA KAYMA DÜZELTMESİ ---
+            # Font boyutu 5'ten 6'ya çıkarıldı, Canva'da dairenin dışına
+            # taşmaması ve tam ortaya oturması için Y ekseni ofseti (1.8) ayarlandı.
+            c.setFont("Helvetica", 6)
+            c.drawCentredString(X(x), Y(y) - 1.8, rakam_str)
 
 
 def sorulari_ciz(c: canvas.Canvas, soru_plani: dict):
     r = soru_plani["bubble_radius_mm"]
-    font_boyutu = max(4, min(7, r * 2.4))
+    
+    # --- CANVA KAYMA DÜZELTMESİ ---
+    # Şıkların fontu dinamik olarak büyütüldü ve merkez ofsetleri
+    # font boyutuna göre matematiksel olarak ortalandı.
+    font_boyutu = max(5, min(8, r * 2.6))
 
     for soru in soru_plani["sorular"]:
         soru_no = soru["soru_no"]
@@ -120,11 +128,15 @@ def sorulari_ciz(c: canvas.Canvas, soru_plani: dict):
             c.circle(X(x), Y(y), r * mm, fill=0, stroke=1)
             c.setFont("Helvetica", font_boyutu)
             c.setFillColorRGB(0, 0, 0)
-            c.drawCentredString(X(x), Y(y) - r * 0.6, harf)
+            
+            # Y(y) tam merkezdir. Yazının font boyutunun yaklaşık %32'si kadar 
+            # aşağı çekilmesi harfi dairenin tam göbeğine oturtur.
+            c.drawCentredString(X(x), Y(y) - (font_boyutu * 0.32), harf)
+            
         if ilk_koord:
             c.setFont("Helvetica-Bold", font_boyutu)
             c.setFillColorRGB(0, 0, 0)
-            c.drawRightString(X(ilk_koord[0]) - r * mm - 5, Y(ilk_koord[1]) - 2, f"{soru_no}.")
+            c.drawRightString(X(ilk_koord[0]) - r * mm - 5, Y(ilk_koord[1]) - (font_boyutu * 0.32), f"{soru_no}.")
 
 
 def form_uret(soru_sayisi: int, sik_harfleri: str, hane_sayisi: int, cikti_yolu: str,
@@ -135,10 +147,6 @@ def form_uret(soru_sayisi: int, sik_harfleri: str, hane_sayisi: int, cikti_yolu:
     c = canvas.Canvas(cikti_yolu, pagesize=A4)
 
     # PDF'e baslik metadata'si yaz -- yoksa tarayici sekmesi "untitled" gosterir.
-    # ONEMLI: burada indirilen DOSYA ADIYLA (--baslik olarak Laravel'in
-    # gonderdigi sinav adi) AYNI degeri kullaniyoruz, yoksa sekme basligi ile
-    # indirilen dosya adi birbirini tutmuyor (kullanicinin sikayet ettigi
-    # "inen isim ve acilan isim farkli" sorunu tam olarak buydu).
     import os
     pdf_baslik = baslik.strip() if baslik and baslik.strip() else os.path.splitext(os.path.basename(cikti_yolu))[0]
     c.setTitle(pdf_baslik)
