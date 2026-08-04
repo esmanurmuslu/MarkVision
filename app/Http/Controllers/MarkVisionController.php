@@ -727,6 +727,20 @@ if (!$sinavId && $request->hasSession()) {
         }
     }
 
+// YENİ EKLENEN FONKSİYON: web.php'de rotası tanımlı olup (panel.obssinavlari)
+    // karşılığı eksik olan metot.
+    public function obsSinavlariGetir(Request $request)
+    {
+        try {
+            $sinavlar = ObsExam::orderByDesc('id')
+                ->get(['id', 'course_name', 'exam_type', 'total_questions']);
+
+            return response()->json(['success' => true, 'data' => $sinavlar]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     // Taranan sonucu OBS'ye (exam_results tablosuna) kaydeder
     public function obsKaydet(Request $request)
     {
