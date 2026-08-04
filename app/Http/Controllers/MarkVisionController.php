@@ -252,7 +252,6 @@ class MarkVisionController extends Controller
                 'exam_name'          => 'required|string|max:255',
                 'ders_kodu'          => 'nullable|string|max:50',
                 'obs_exam_id'        => 'nullable',
-                'sinav_id'           => 'nullable|integer',
                 'answers'            => 'required|array|min:1',
                 'answers.*'          => 'required|string|in:A,B,C,D,E,F,G,H,I,J',
                 'koordinat_haritasi' => 'nullable|array',
@@ -288,40 +287,7 @@ class MarkVisionController extends Controller
                 $obsExamId = null;
             }
 
-            // === ONEMLI DUZELTME: HER KAYITTA YENI SATIR OLUSTURMA HATASI ===
-            // Eskiden burada KOSULSUZ "new Sinav()" cagriliyordu -- yani hem web
-            // sihirbazindan hem mobil QUIZ KEY ekranindan "Kaydet" basildiginda,
-            // ayni sinavi GUNCELLEMEK yerine HER SEFERINDE ayri, bagimsiz, YENI
-            // bir sinav kaydi (yeni ID, yeni koordinat_<id>.json, yeni
-            // form_<id>.pdf) olusturuluyordu. Sonuc: ayni isimde ("turkce" gibi)
-            // birbirinden bagimsiz, FARKLI sik/hane sayisina sahip birden fazla
-            // sinav kaydi birikiyor, mobil/web hangisini gosterdigine gore
-            // "web'de G'ye kadar var ama mobilde E'de kaliyor" gibi tutarsizliklar
-            // ortaya cikiyordu.
-            //
-            // Simdi: istekte 'sinav_id' geldiyse VE bu ID o ogretmene aitse,
-            // YENI kayit ACILMIYOR -- var olan sinav GUNCELLENIYOR. 'sinav_id'
-            // gelmediyse (ilk kez olusturuluyorsa) eskisi gibi yeni kayit acilir.
-            $sinavId = $request->input('sinav_id');
-            $sinav = null;
-            if (!empty($sinavId)) {
-                $sinav = \App\Models\Sinav::find($sinavId);
-                if ($sinav) {
-                    $sahibiDogrula = true;
-                    if (Auth::check()) {
-                        $sahibiDogrula = ((int) $sinav->teacher_id === (int) Auth::id());
-                    } elseif ($request->has('email')) {
-                        $teacher = DB::table('teachers')->where('email', $request->input('email'))->first();
-                        $sahibiDogrula = $teacher && ((int) $sinav->teacher_id === (int) $teacher->id);
-                    }
-                    if (!$sahibiDogrula) {
-                        $sinav = null; // baskasinin sinavini GUNCELLEMEYE izin verme, yeni kayit acilsin
-                    }
-                }
-            }
-            if ($sinav === null) {
-                $sinav = new Sinav();
-            }
+            $sinav = new Sinav();
             $sinav->sinav_adi = $request->input('exam_name');
             $sinav->ders_kodu = $dersKodu;
             $sinav->cevap_anahtari = $request->input('answers');
@@ -332,7 +298,6 @@ class MarkVisionController extends Controller
             $sinav->penalty_coef = $request->input('penalty_coef', 0);
 
             // YENİ EKLENDİ: teacher_id atanmıyordu, bu yüzden "Sınavlar" sekmesi
-
             // (panelSinavlariGetir -> Sinav::where('teacher_id', Auth::id())) yeni
             // oluşturulan sınavı asla göremiyordu -- kayıt teacher_id=null olarak
             // düşüyordu. Sadece oturum açıkken (web panelinden) atanır; mobil/
@@ -362,39 +327,8 @@ class MarkVisionController extends Controller
 
             // === Bu sınava özel koordinat haritasını diske kaydet (varsa) ===
             $soruSayisi  = count($request->input('answers'));
-
-            // GUVENLIK KATMANI: 'sik_harfleri' / 'hane_sayisi' istekte
-            // gelmediyse (ornegin ileride baska bir ekran/entegrasyon bu
-            // alanlari eklemeyi unutursa), sabit "ABCDE/9" varsayilanina
-            // DUSMEDEN ONCE -- eger bu GUNCELLENEN mevcut bir sinavsa --
-            // once o sinavin KENDI mevcut koordinat dosyasindan gercek
-            // sik/hane sayisini okumayi dene. Boylece eksik bir alan,
-            // var olan dogru sik/hane duzenini SESSIZCE 5 sik'e/9 haneye
-            // dusurup ustune yazamaz.
-            $eskiSikHarfleri = null;
-            $eskiHaneSayisi = null;
-            if (!empty($sinavId)) {
-                $eskiKoordYolu = storage_path('app/omr_scripts/koordinat_' . $sinavId . '.json');
-                if (file_exists($eskiKoordYolu)) {
-                    $eskiJson = json_decode(file_get_contents($eskiKoordYolu), true);
-                    if (isset($eskiJson['sorular'][0])) {
-                        $harfler = [];
-                        foreach ($eskiJson['sorular'][0] as $k => $v) {
-                            if ($k !== 'soru_no') $harfler[] = $k;
-                        }
-                        if (count($harfler) > 0) {
-                            sort($harfler);
-                            $eskiSikHarfleri = implode('', $harfler);
-                        }
-                    }
-                    if (isset($eskiJson['ogrenci_no'])) {
-                        $eskiHaneSayisi = count($eskiJson['ogrenci_no']);
-                    }
-                }
-            }
-
-            $sikHarfleri = strtoupper(trim($request->input('sik_harfleri', $eskiSikHarfleri ?? 'ABCDE')));
-            $haneSayisi  = (int) $request->input('hane_sayisi', $eskiHaneSayisi ?? 9);
+            $sikHarfleri = strtoupper(trim($request->input('sik_harfleri', 'ABCDE')));
+            $haneSayisi  = (int) $request->input('hane_sayisi', 9);
             $penaltyCoef = $sinav->penalty_coef; // C kişisi katsayısı
 
             $omrDir   = base_path('omr_scripts');
@@ -727,8 +661,9 @@ if (!$sinavId && $request->hasSession()) {
         }
     }
 
-// YENİ EKLENEN FONKSİYON: web.php'de rotası tanımlı olup (panel.obssinavlari)
-    // karşılığı eksik olan metot.
+    // YENİ EKLENEN FONKSİYON: web.php'de rotası tanımlı olup (panel.obssinavlari)
+    // karşılığı eksik olan metot. Mobil uygulamanın "Cevap Anahtarı" ekranından
+    // bir sınavı OBS'deki bir sınavla eşleştirebilmesi için OBS sınav listesini döner.
     public function obsSinavlariGetir(Request $request)
     {
         try {
