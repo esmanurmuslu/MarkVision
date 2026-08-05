@@ -264,10 +264,13 @@
                                 <h3 class="font-bold text-xs uppercase text-slate-700">Soru Blokları</h3>
                                 <div class="flex items-center gap-2">
                                     <span class="text-xs font-semibold text-slate-600">Ceza Katsayısı:</span>
-                                    <input type="number" id="wiz_penalty_coef" value="0" step="0.25" min="0" max="1" class="border rounded p-1 w-20 text-xs bg-white text-center font-bold">
+                                    <input type="number" id="wiz_penalty_coef" value="0" step="0.25" min="0" max="1" class="border rounded p-1 w-20 text-xs bg-white text-center font-bold" title="Sınav kuralına göre yanlış cevapların neti düşürme oranıdır. (Örn: 4 yanlış 1 doğruyu götürüyorsa 0.25, 3 yanlış 1 doğruyu götürüyorsa 0.33, yanlış doğruyu götürmüyorsa 0 giriniz.)">
                                 </div>
                                 <button type="button" id="btnSoruBlokEkle" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-2 rounded text-xs cursor-pointer">+ Soru Bloğu Ekle</button>
                             </div>
+                            <p class="text-[11px] text-slate-500 italic -mt-2">
+                                Sınav kuralına göre yanlış cevapların neti düşürme oranıdır. (Örn: 4 yanlış 1 doğruyu götürüyorsa 0.25, 3 yanlış 1 doğruyu götürüyorsa 0.33, yanlış doğruyu götürmüyorsa 0 giriniz.)
+                            </p>
                             <table class="w-full text-xs border border-slate-200">
                                 <thead class="bg-slate-100"><tr><th class="p-2 border">Soru Adeti</th><th class="p-2 border">Şıklar</th><th class="p-2 border">Puan</th></tr></thead>
                                 <tbody id="wiz_question_list">

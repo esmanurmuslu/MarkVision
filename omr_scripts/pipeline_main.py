@@ -42,12 +42,15 @@ from anchor_detect import belgeyi_duzlestir, kenar_koyuluk_orani
 from bubble_detect import soruyu_oku, coklu_soru_oku, kabarcik_doluluk_orani
 
 # Sinav puanlamasinda yanlislarin dogrulari goturup goturmeyecegini
-# belirleyen katsayi. Universitenizin puanlama politikasina gore
-# degistirin:
+# belirleyen katsayi. Artik SABIT DEGIL: her sinav icin Laravel tarafinda
+# (sinavlar.penalty_coef) ogretmenin girdigi deger, sinav_bilgisi.json
+# icindeki "penalty_coef" alaniyla buraya tasinir (bkz. kagidi_isle).
+# Bu sabit sadece sinav_bilgisi.json'da alan yoksa (eski/geriye donuk
+# uyumluluk) kullanilacak VARSAYILAN degerdir:
 #   0      -> yanlis, dogruyu goturmez (net puan = dogru sayisi)
-#   1/4    -> 4 secenekli klasik "4 yanlis 1 dogruyu goturur" kurali
+#   0.25   -> 4 secenekli klasik "4 yanlis 1 dogruyu goturur" kurali
 #   1/(N-1)-> N secenekli sinavlarda istatistiksel olarak "adil" ceza
-CEZA_KATSAYISI = 0
+VARSAYILAN_CEZA_KATSAYISI = 0
 
 
 def _akilli_rakam_sec(img_gri, secenekler, yaricap=12, min_taban=0.25):
@@ -55,8 +58,6 @@ def _akilli_rakam_sec(img_gri, secenekler, yaricap=12, min_taban=0.25):
     en_yuksek_oran = 0.0
 
     for rakam_str, merkez in secenekler.items():
-        # Sabit 12 yerine, fonksiyona gönderilen 'yaricap' parametresini kullanıyoruz.
-        # min_taban'ı da biraz düşürelim ki silik kalemleri de daha rahat görsün.
         oran = kabarcik_doluluk_orani(img_gri, merkez, yaricap=yaricap)
         if oran > en_yuksek_oran:
             en_yuksek_oran = oran
@@ -78,12 +79,8 @@ def ogrenci_no_oku(img_gri, harita):
         secenekler = harita["ogrenci_no"][basamak_adi]
         secenekler = {k: tuple(v) for k, v in secenekler.items()}
         
-        # Yarıçapı 14'e çıkardık. Kağıt eğrilse/kaysa bile geniş alanda arayacak.
-        # Ayrıca min_taban=0.15 ekleyerek silik baskıları/kalemleri tolere ediyoruz.
         rakam = _akilli_rakam_sec(img_gri, secenekler, yaricap=14, min_taban=0.15)
         
-        # Eğer bu sütun boşsa ('?') ve biz zaten en az 2-3 hane okuduysak, 
-        # öğrencinin numarası bitmiş demektir; sağdaki boş sütunları okumayı bırak!
         if rakam == "?":
             if len(rakamlar_listesi) >= 2:
                 break
@@ -98,6 +95,7 @@ def ogrenci_no_oku(img_gri, harita):
         return "?"
         
     return no
+
 def sorulari_oku(img_gri, harita, toplam_soru):
     """
     Optik kagitta fiziksel olarak 40 soruluk yer olsa da, sinava gore
@@ -120,7 +118,7 @@ def sorulari_oku(img_gri, harita, toplam_soru):
     return coklu_soru_oku(img_gri, sorular_tuple, bagil_yedek=True)
 
 
-def puanla(cevaplar, answer_key, question_weights=None):
+def puanla(cevaplar, answer_key, question_weights=None, ceza_katsayisi=VARSAYILAN_CEZA_KATSAYISI):
     dogru = yanlis = bos = 0
     gecersiz_sorular = []
     
@@ -129,6 +127,11 @@ def puanla(cevaplar, answer_key, question_weights=None):
 
     if question_weights is None:
         question_weights = {}
+
+    try:
+        ceza_katsayisi = float(ceza_katsayisi)
+    except (TypeError, ValueError):
+        ceza_katsayisi = VARSAYILAN_CEZA_KATSAYISI
 
     # Eğer answer_key liste gelirse güvenli şekilde sözlüğe çevirelim
     if isinstance(answer_key, list):
@@ -155,7 +158,7 @@ def puanla(cevaplar, answer_key, question_weights=None):
             alinan_agirlikli_puan += agirlik
         else:
             yanlis += 1
-            alinan_agirlikli_puan -= (agirlik * CEZA_KATSAYISI)
+            alinan_agirlikli_puan -= (agirlik * ceza_katsayisi)
 
     alinan_agirlikli_puan = max(alinan_agirlikli_puan, 0.0)
     
@@ -181,6 +184,8 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
     exam_id = sinav["exam_id"]
     toplam_soru = sinav["total_questions"]
     answer_key = sinav["answer_key"]
+    question_weights = sinav.get("question_weights") or {}
+    ceza_katsayisi = sinav.get("penalty_coef", VARSAYILAN_CEZA_KATSAYISI)
 
     stderr_yakalayici = io.StringIO()
     with contextlib.redirect_stderr(stderr_yakalayici):
@@ -196,19 +201,15 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
         }
 
     ogrenci_no_str = ogrenci_no_oku(img_gri, harita)
-    # --- AKILLI HİZALAMA VE GÜVENLİK KİLİDİ ---
-    # Sadece içinde çok fazla '?' varsa ya da boyu çok kısaysa reddet
     if ogrenci_no_str.count("?") > 2 or len(ogrenci_no_str.strip()) < 5:
         return {
             "basarili": False,
             "status": "failed",
             "hata": "Öğrenci numarası net okunamadı. Lütfen formu kameraya tam ve dik tutun."
         }
-    # ❌ EKRAN TESTİ İÇİN OLAN "1111111" BYPASS KODU TAMAMEN SİLİNDİ!
 
     cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
 
-    # --- OTOMATİK KOORDİNAT HARİTASI FALLBACK ---
     if "?" in ogrenci_no_str:
         harita_klasoru = os.path.dirname(os.path.abspath(koordinat_dosyasi))
         mevcut_ad = os.path.basename(koordinat_dosyasi)
@@ -231,23 +232,18 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
                 ogrenci_no_str = alt_ogrenci_no_str
                 cevaplar = sorulari_oku(img_gri, harita, toplam_soru)
                 break
-    # --- FALLBACK BİTİŞ ---
 
-    puanlar = puanla(cevaplar, answer_key)
+    puanlar = puanla(cevaplar, answer_key, question_weights=question_weights, ceza_katsayisi=ceza_katsayisi)
 
-    # --- YENİ: ZİPGRADE TARZI RENKLİ YUVARLAK ÇİZİMİ ---
     try:
-        # Öğrenci numarasının olduğu yerlere Mavi yuvarlak çiz
         for basamak, secenekler in harita["ogrenci_no"].items():
             for rakam, kord in secenekler.items():
                 cv2.circle(img_renkli, (int(kord[0]), int(kord[1])), 10, (255, 0, 0), 2)
 
-        # Answer key sözlük formatına çevirme (Güvenlik için)
         guvenli_answer_key = answer_key
         if isinstance(answer_key, list):
             guvenli_answer_key = {str(i + 1): val for i, val in enumerate(answer_key)}
 
-        # Soruların işaretlenen piksellerine Doğru/Yanlış/Boş çiz
         for soru in harita["sorular"][:toplam_soru]:
             soru_no_str = str(soru["soru_no"])
             ogrenci_cvp = cevaplar.get(soru_no_str, "BOS")
@@ -257,29 +253,23 @@ def kagidi_isle(resim_yolu, koordinat_dosyasi, sinav_bilgisi_dosyasi):
                 if k == "soru_no": continue
                 x, y = int(v[0]), int(v[1])
                 
-                # 1. Eğer öğrenci bu şıkkı işaretlediyse:
                 if k == ogrenci_cvp:
                     if ogrenci_cvp == dogru_cvp:
-                        cv2.circle(img_renkli, (x, y), 12, (0, 255, 0), 3) # DOĞRU -> YEŞİL
+                        cv2.circle(img_renkli, (x, y), 12, (0, 255, 0), 3)
                     else:
-                        cv2.circle(img_renkli, (x, y), 12, (0, 0, 255), 3) # YANLIŞ -> KIRMIZI
+                        cv2.circle(img_renkli, (x, y), 12, (0, 0, 255), 3)
                 
-                # 2. Eğer öğrenci bu soruyu BOŞ bıraktıysa (ve bu şık doğru cevapsa) -> SARI
                 elif ogrenci_cvp == "BOS" and k == dogru_cvp:
-                    cv2.circle(img_renkli, (x, y), 12, (0, 255, 255), 3) # BOŞ -> SARI
+                    cv2.circle(img_renkli, (x, y), 12, (0, 255, 255), 3)
 
-        # Çizilmiş Orijinal Resmi DİREKT olarak sunucu klasörüne üstüne yazarak kaydet
         cv2.imwrite(resim_yolu, img_renkli)
     except Exception as e:
         pass 
-    # --- ÇİZİM BİTİŞ ---
 
-    # ❌ EKRAN TESTİ "1234567" BYPASS KODU TAMAMEN SİLİNDİ!
-    # Artık numara eksikse ("?") Laravel'e boş dönecek ve Laravel bunu reddecek.
     return {
         "basarili": True,
         "exam_id": int(exam_id),
-        "student_no": ogrenci_no_str.replace("?", ""), # SADECE GERÇEK OKUNAN NUMARA
+        "student_no": ogrenci_no_str.replace("?", ""),
         "student_answers": {str(k): str(v) for k, v in cevaplar.items()},
         "correct_count": int(puanlar["correct_count"]),
         "wrong_count": int(puanlar["wrong_count"]),

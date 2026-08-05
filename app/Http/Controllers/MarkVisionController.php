@@ -517,6 +517,7 @@ if (!$sinavId && $request->hasSession()) {
                 'total_questions' => $totalQuestions,
                 'answer_key'      => $answerKey,
                 'question_weights'=> $sinav->question_weights ?? [], // YENİ EKLENDİ
+                'penalty_coef'    => $sinav->penalty_coef ?? 0, // DÜZELTİLDİ: ceza katsayısı artık Python'a iletiliyor
             ];
             $sinavPath = $tempDir . DIRECTORY_SEPARATOR . 'sinav_' . uniqid() . '.json';
             file_put_contents($sinavPath, json_encode($sinavBilgisi, JSON_UNESCAPED_UNICODE));
