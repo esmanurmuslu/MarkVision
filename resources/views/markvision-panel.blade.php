@@ -254,7 +254,7 @@
                                 <label class="flex items-center gap-2 font-bold text-xs"><input type="checkbox" id="wiz_has_student_id" checked class="w-4 h-4"> Öğrenci Numarası Alanı Ekle</label>
                                 <div class="flex items-center gap-4 text-xs">
                                     <span>Hane Sayısı:</span>
-                                    <select id="wiz_id_digits" class="border rounded p-1.5 bg-white"><option value="5">5</option><option value="9" selected>9</option><option value="11">11</option></select>
+                                    <input type="number" id="wiz_id_digits" value="9" min="1" max="15" step="1" class="border rounded p-1.5 w-20 bg-white text-center" title="Öğrenci numarası kaç haneyse o sayıyı giriniz.">
                                 </div>
                             </div>
                         </div>
@@ -955,7 +955,9 @@ function standartPngAc(qCount) {
 async function publisFormuKaydet() {
     const formAdi = document.getElementById('wiz_form_name').value || "Ozel_Optik_Form";
     const hasId = document.getElementById('wiz_has_student_id').checked;
-    const haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 9;
+    let haneSayisi = hasId ? parseInt(document.getElementById('wiz_id_digits').value) : 9;
+    if (!Number.isInteger(haneSayisi) || haneSayisi < 1) haneSayisi = 9;
+    if (haneSayisi > 15) haneSayisi = 15;
 
     const penaltyCoef = parseFloat(document.getElementById('wiz_penalty_coef')?.value) || 0;
 

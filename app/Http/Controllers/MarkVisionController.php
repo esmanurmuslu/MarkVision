@@ -259,6 +259,7 @@ class MarkVisionController extends Controller
                 'etiket_sinif'       => 'nullable|string|max:50',
                 'etiket_sinav_adi'   => 'nullable|string|max:50',
                 'penalty_coef'       => 'nullable|numeric|min:0', // C KİŞİSİ GÖREVİ: Ceza katsayısı validasyonu
+                'hane_sayisi'        => 'nullable|integer|min:1|max:15', // DÜZELTİLDİ: artık serbest hane sayısı
             ]);
 
             $dersKodu = trim((string) $request->input('ders_kodu'));
@@ -297,6 +298,12 @@ class MarkVisionController extends Controller
             // C KİŞİSİ GÖREVİ: Panelden gelen ceza katsayısını veritabanına kaydediyoruz
             $sinav->penalty_coef = $request->input('penalty_coef', 0);
 
+            // DÜZELTİLDİ: hane sayısı artık kaydediliyor. Önceden bu satır hiç
+            // yoktu; optikOkut() bu yüzden $sinav->ogrenci_no_hane'i her zaman
+            // null bulup varsayılan 9'a düşüyordu, öğretmenin seçtiği hane
+            // sayısı okuma sırasında kayboluyordu.
+            $sinav->ogrenci_no_hane = (int) $request->input('hane_sayisi', 9);
+
             // YENİ EKLENDİ: teacher_id atanmıyordu, bu yüzden "Sınavlar" sekmesi
             // (panelSinavlariGetir -> Sinav::where('teacher_id', Auth::id())) yeni
             // oluşturulan sınavı asla göremiyordu -- kayıt teacher_id=null olarak
@@ -328,7 +335,7 @@ class MarkVisionController extends Controller
             // === Bu sınava özel koordinat haritasını diske kaydet (varsa) ===
             $soruSayisi  = count($request->input('answers'));
             $sikHarfleri = strtoupper(trim($request->input('sik_harfleri', 'ABCDE')));
-            $haneSayisi  = (int) $request->input('hane_sayisi', 9);
+            $haneSayisi  = $sinav->ogrenci_no_hane; // DÜZELTİLDİ: yukarıda zaten kaydedilen değer kullanılıyor
             $penaltyCoef = $sinav->penalty_coef; // C kişisi katsayısı
 
             $omrDir   = base_path('omr_scripts');
@@ -851,12 +858,12 @@ if (!$sinavId && $request->hasSession()) {
             mkdir($cacheDir, 0777, true);
         }
 
-        // Öğrenci numarası hane sayısını form türüne göre sabitle
-        if ($toplamSoru > 50) {
-            $ogrenciNoHane = 9;
-        } else {
-            $ogrenciNoHane = 5;
-        }
+        // DÜZELTİLDİ: Daha önce burada öğrenci no hane sayısı, soru sayısına
+        // bakılarak SADECE 5 veya 9'a zorlanıyordu (öğretmen ne girerse girsin
+        // görmezden geliniyordu). Artık öğretmenin girdiği hane sayısı olduğu
+        // gibi kullanılır; sadece mantıksız (0'dan küçük ya da çok büyük)
+        // değerlere karşı güvenlik amaçlı 1-15 aralığına sıkıştırılır.
+        $ogrenciNoHane = max(1, min(15, $ogrenciNoHane));
 
         // Aynı form için tekrar tekrar üretmemek adına önbellek dosya adı
         $cikti = $cacheDir . DIRECTORY_SEPARATOR . "koordinat_{$toplamSoru}s_{$sikHarfleri}_{$ogrenciNoHane}h.json";
